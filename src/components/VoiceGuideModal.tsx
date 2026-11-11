@@ -57,9 +57,9 @@ export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
     const med = recommendation.approvedTreatments[0];
 
     if (lang === 'ps') {
-      if (topic === 'weather') return ps?.bestTime || 'سبا سهار له ۷ تر ۱۰ بجو پورې درمل وشیندئ';
-      if (topic === 'medicine') return ps?.medicineName || med?.name || 'مینکوزیب درمل وکاروئ';
-      if (topic === 'desi') return 'خرابې لاندینۍ پاڼې وشکوئ او تر خاورو لاندې یې پټې کړئ';
+      if (topic === 'weather') return ps?.bestTime || 'سبا سهار د ۷ نه تر ۱۰ بجو پورې سپرے وکړئ';
+      if (topic === 'medicine') return ps?.medicineName || med?.name || 'مینکوزیب دوایي استعمال کړئ';
+      if (topic === 'desi') return 'لاندې خرابې پاڼې وشکوئ او په خاوره کې یې ښخې کړئ';
       return `${ps?.disease || recommendation.disease} — ${ps?.bestTime || recommendation.bestTime}`;
     }
 
@@ -76,7 +76,7 @@ export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
     return `${recommendation.disease} — ${recommendation.bestTime}`;
   };
 
-  // Build authentic, natural conversational script in Urdu, Pashto, or English
+  // Build authentic, natural conversational script in Urdu, everyday Mardan Pashto, or English
   const getSpokenScript = (topic: 'full' | 'weather' | 'medicine' | 'desi', lang: Language): string => {
     const ur = recommendation.translations?.ur;
     const ps = recommendation.translations?.ps;
@@ -84,31 +84,31 @@ export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
 
     if (lang === 'ps') {
       if (topic === 'weather') {
-        return `زما ګرانه زمینداره وروره! د هوا په اړه زما خبره واورئ: ${
-          ps?.bestTime || 'سبا سهار له اوو بجو تر لسو بجو پورې'
-        } د درملو شیندلو لپاره تر ټولو غوره وخت دی. ${
-          ps?.whySummary || 'نن د باران امکان شته، نو نن درمل مه شیندوئ ترڅو ستاسو پیسې ضایع نشي.'
+        return `السلام علیکم زما خوږه زمینداره وروره! د موسم په باره کې زما خبره واورئ: ${
+          ps?.bestTime || 'سبا سهار د اوو بجو نه تر لسو بجو پورې'
+        } د سپرے کولو لپاره تر ټولو ښه وخت دی. ${
+          ps?.whySummary || 'نن د باران امکان شته، نو نن سپرے مه کوئ ترڅو ستاسو دوایي او پیسې ضایع نشي.'
         }`;
       }
       if (topic === 'medicine') {
-        return `زمینداره وروره! د دې ناروغۍ لپاره تر ټولو ښه او تایید شوی درمل ${
+        return `السلام علیکم زمینداره وروره! د دې بیمارۍ لپاره تر ټولو ښه او منظور شوې دوایي ${
           ps?.medicineName || med?.name || 'مینکوزیب'
-        } دی. اندازه یې دا ده: ${
-          ps?.dosageText || 'د یو ایکړ لپاره شپږ سوه ګرامه درمل په سلو لیټرو اوبو کې ګډ کړئ'
-        }. او پام کوئ: ${
-          ps?.safetyText || 'د درمل شیندلو پر وخت خپله خوله او پوزه په څادر پټه کړئ.'
+        } ده. د دې طریقه دا ده: ${
+          ps?.dosageText || 'د یو ایکړ لپاره شپږ سوه ګرامه دوایي په سلو لیټرو اوبو کې مکس کړئ او سپرے وکړئ'
+        }. او دا احتیاط ضرور کوئ: ${
+          ps?.safetyText || 'د سپرے کولو په وخت خپله خوله او پوزه په صافه کپړه وتړئ.'
         }`;
       }
       if (topic === 'desi') {
-        return `که تاسو غواړئ بې له پیسو کلیوالي علاج وکړئ، نو د بوټي لاندینۍ خرابې او داغدارې پاڼې وشکوئ او له پټي بهر یې تر خاورو لاندې پټې کړئ. همدارنګه د نیم د ونې د زڼو اوبه پر بوټو وشیندئ.`;
+        return `السلام علیکم زمینداره وروره! که تاسو غواړئ بې له پیسو دیسي او کلیواله طریقه وکړئ، نو د بوټي لاندې خرابې او داغدارې پاڼې وشکوئ او له پټي بهر یې په خاوره کې ښخې کړئ. او د بکانړې یا نیم د ونې د پاڼو اوبه پر بوټو سپرے کړئ.`;
       }
       return (
         ps?.voiceScript ||
-        `السلام علیکم زما ګرانه زمینداره وروره! ما ستاسو د کښت پاڼه په غور وکتله. په دې باندې ${
+        `السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د فصل پاڼه په غور سره وکتله. په دې باندې ${
           ps?.disease || recommendation.disease
-        } ناروغي لیدل کیږي. ${ps?.action || recommendation.action} ${
+        } بیماري لګېدلې ده. ${ps?.action || recommendation.action} ${
           ps?.dosageText || ''
-        } الله پاک دې ستاسو په فصل کې برکت واچوي!`
+        } الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!`
       );
     }
 
@@ -294,28 +294,28 @@ export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
                 key: 'full' as const,
                 icon: Volume2,
                 ur: 'پورا مشورہ',
-                ps: 'ټوله مشوره',
+                ps: 'پوره مشوره',
                 en: 'Full Advice',
               },
               {
                 key: 'weather' as const,
                 icon: CloudRain,
                 ur: 'اسپرے کا وقت',
-                ps: 'د شیندلو وخت',
+                ps: 'د سپرے وخت',
                 en: 'Spray Time',
               },
               {
                 key: 'medicine' as const,
                 icon: FlaskConical,
                 ur: 'کونسی دوائی؟',
-                ps: 'کوم درمل؟',
+                ps: 'کومه دوایي؟',
                 en: 'Medicine',
               },
               {
                 key: 'desi' as const,
                 icon: Sprout,
                 ur: 'دیسی علاج',
-                ps: 'کلیوالي لاره',
+                ps: 'دیسي طریقه',
                 en: 'Home Remedy',
               },
             ].map((topicItem) => {

@@ -1,38 +1,18 @@
 import { AGRICULTURAL_KNOWLEDGE_BASE, VERIFIED_PESTICIDES_DB } from '../../data/knowledgeBase.ts';
 import { RankedRagDocument } from '../schemas/apiSchemas.ts';
+import { embeddingScorer } from '../embeddings/embeddingScorer.ts';
 
 /**
- * Dedicated Retrieval-Augmented Generation (RAG) Service
- * Stage 5 of the 10-Stage AI Pipeline
+ * Retrieval-Augmented Generation (RAG) Service
  *
  * Responsibilities:
  * - Retrieve agricultural extension documents (KP Agriculture Dept & PARC manuals)
  * - Retrieve verified medicine registry information
  * - Retrieve government advisories & withholding safety rules
- * - Retrieve weather spray-suitability context
- * - Rank retrieved documents via lexical + vector cosine similarity scoring
+ * - Rank retrieved documents via `embeddingScorer` (`embeddings/embeddingScorer.ts`)
  * - Pass only the top-K relevant context to the Decision Engine & Gemini LLM
  */
 export class AgriculturalRagService {
-  private tokenize(text: string): string[] {
-    return text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((t) => t.length > 2);
-  }
-
-  private computeSimilarityScore(queryTokens: string[], docText: string, cropMatch: boolean, classMatch: boolean): number {
-    const docTokens = new Set(this.tokenize(docText));
-    let overlap = 0;
-    for (const token of queryTokens) {
-      if (docTokens.has(token)) overlap += 1;
-    }
-    const lexicalScore = queryTokens.length > 0 ? overlap / Math.sqrt(queryTokens.length * Math.max(1, docTokens.size)) : 0;
-    const boost = (cropMatch ? 0.45 : 0) + (classMatch ? 0.35 : 0);
-    return Number(Math.min(0.99, lexicalScore + boost).toFixed(3));
-  }
-
   retrieveAndRankContext(params: {
     crop: string;
     predictedClassId: string;
@@ -47,7 +27,7 @@ export class AgriculturalRagService {
   } {
     const { crop, predictedClassId, symptoms, district, topK = 3 } = params;
     const queryStr = `${crop} ${predictedClassId.replace(/_/g, ' ')} ${symptoms.join(' ')} ${district}`;
-    const queryTokens = this.tokenize(queryStr);
+    const queryTokens = embeddingScorer.tokenize(queryStr);
 
     const scoredDocs: RankedRagDocument[] = AGRICULTURAL_KNOWLEDGE_BASE.map((doc) => {
       const serializedRules = doc.decisionRules.map(
@@ -56,7 +36,12 @@ export class AgriculturalRagService {
       const fullText = `${doc.crop} ${doc.disease} ${doc.title} ${doc.symptoms.join(' ')} ${serializedRules.join(' ')}`;
       const cropMatch = doc.crop.toLowerCase() === crop.toLowerCase();
       const classMatch = predictedClassId.toLowerCase().includes(doc.crop.toLowerCase());
-      const relevanceScore = this.computeSimilarityScore(queryTokens, fullText, cropMatch, classMatch);
+      const relevanceScore = embeddingScorer.computeSimilarityScore(
+        queryTokens,
+        fullText,
+        cropMatch,
+        classMatch
+      );
 
       return {
         id: doc.id,

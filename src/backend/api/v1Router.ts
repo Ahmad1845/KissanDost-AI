@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { settings } from '../config/settings.ts';
 import { cacheService } from '../middleware/apiMiddleware.ts';
-import { visionAndMlPipeline } from '../ai/imagePipeline.ts';
-import { geminiAiService } from '../ai/geminiService.ts';
+import { visionAndMlPipeline } from '../vision/imagePipeline.ts';
+import { geminiAiService } from '../llm/geminiService.ts';
 import { weatherService, KP_COORDINATES } from '../weather/weatherService.ts';
 import { medicineService } from '../medicine/medicineService.ts';
 import { outbreakService } from '../community/outbreakService.ts';
@@ -17,12 +17,10 @@ const healthHandler = (_req: Request, res: Response) => {
   res.json({
     status: 'online',
     service: settings.appName,
-    architecture: '10-Stage Modular AI Microservice Pipeline (FastAPI / Express Hybrid)',
+    architecture: 'Modular AI Backend Architecture (FastAPI / Express)',
     version: settings.version,
     geminiConfigured: geminiAiService.isConfigured(),
     mlModelVersion: mlStatus.model.modelVersion,
-    mlValAccuracy: mlStatus.model.finalValAccuracy,
-    mlMacroF1: mlStatus.model.macroF1,
     districtCount: Object.keys(KP_COORDINATES).length,
     cache: cacheService.stats(),
   });
@@ -134,7 +132,7 @@ v1Router.get('/v1/history', (req: Request, res: Response) => {
   });
 });
 
-// ==================== 8. FARMER FEEDBACK & RLHF TELEMETRY ====================
+// ==================== 8. FARMER FEEDBACK COLLECTION ====================
 v1Router.post('/v1/feedback', (req: Request, res: Response) => {
   const { scanId = 'unknown', rating = 5, helpful = true, comments = '' } = req.body || {};
   const saved = scanRepository.saveFeedback({

@@ -67,8 +67,9 @@ Context:
 ${params.ragPromptContext}
 
 CRITICAL RULES FOR LOW-LITERACY FARMERS:
-1. NEVER use difficult scientific jargon. Use simple, everyday farmer words!
-2. Provide natural, warm, human-sounding spoken scripts in both Pakistani Urdu (اردو) and KP Pashto (پښتو) as if an elder brother ("Kissan Dost") is speaking directly to the farmer in the field, starting with "السلام علیکم کسان بھائی!" in Urdu and "السلام علیکم زمینداره وروره!" in Pashto.
+1. NEVER use difficult scientific jargon or bookish/literary Pashto. Use simple, everyday farmer words!
+2. For Pashto (ps), ALWAYS write in simple, everyday **Mardan / Charsadda / Swabi / Peshawar spoken Yusufzai Pashto** (use everyday words like "ټماټر" instead of "رومیان", "دوایي" instead of "درمل", "سپرے وکړئ" instead of "وشیندئ", "بیماري" instead of "ناروغي", "شبنم" instead of "پرخه", "لاندې پاڼې" instead of "لاندینۍ پاڼې", and "زمینداره وروره" instead of "کروندګره").
+3. Provide natural, warm, human-sounding spoken scripts in both Pakistani Urdu (اردو) and simple Mardan Pashto (پښتو) as if an elder brother ("Kissan Dost") is speaking directly to the farmer in the field, starting with "السلام علیکم کسان بھائی!" in Urdu and "السلام علیکم زما خوږه زمینداره وروره!" in Pashto.
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -103,16 +104,16 @@ Return ONLY a JSON object with this exact structure:
       "voiceScript": "السلام علیکم کسان بھائی! سے شروع ہونے والا مکمل، محبت بھرا اور قدرتی اردو بول چال کا پیراگراف"
     },
     "ps": {
-      "cropName": "په پښتو کې د فصل نوم",
-      "disease": "په اسانه پښتو کې د ناروغۍ نوم",
-      "action": "د کروندګر لپاره په اسانه پښتو کې روښانه مشوره",
-      "bestTime": "د سپرې غوره وخت (د بېلګې په توګه سبا سهار له ۷ تر ۱۰ بجو)",
-      "whySummary": "په اسانه پښتو لنډیز",
+      "cropName": "د مردان په اسانه پښتو کې د فصل نوم (لکه ټماټر، غنم، جوار)",
+      "disease": "د مردان په عامه پښتو کې د بیمارۍ نوم",
+      "action": "د زمیندار لپاره د مردان په ساده پښتو کې مشوره (د دوایي او سپرے توري وکاروئ)",
+      "bestTime": "د سپرے غوره وخت (لکه سبا سهار له ۷ تر ۱۰ بجو)",
+      "whySummary": "په ساده کلیوالي پښتو لنډیز",
       "whyPoints": ["لومړی اسانه دلیل", "دوهم اسانه دلیل", "دریم اسانه دلیل"],
-      "medicineName": "منل شوی درمل",
-      "dosageText": "د اوبو او درملو اسانه اندازه",
-      "safetyText": "اسانه احتیاطي لارښوونه",
-      "voiceScript": "السلام علیکم زما ګرانه زمینداره وروره! څخه پیل کیدونکې بشپړه، خوږه او طبیعي پښتو وینا"
+      "medicineName": "منظور شوې دوایي",
+      "dosageText": "د اوبو او دوایۍ اسانه اندازه",
+      "safetyText": "اسانه احتیاطي خبره",
+      "voiceScript": "السلام علیکم زما خوږه زمینداره وروره! څخه پیل کیدونکې د مردان او پېښور په ساده، خوږه او عامه کلیوالي پښتو وینا"
     }
   }
 }`;
@@ -176,7 +177,46 @@ Return ONLY a JSON object with this exact structure:
   }
 
   /**
+   * Prepend 500ms of digital PCM silence right after the 44-byte RIFF WAV header
+   * so browser/OS audio hardware wakes up before the first syllable of speech begins.
+   * Prevents the first 1–2 words from sounding faded or clipped.
+   */
+  private prependLeadingSilenceToWav(wavBase64: string, silenceMs = 500): string {
+    try {
+      const buf = Buffer.from(wavBase64, 'base64');
+      if (buf.length <= 44 || buf.toString('ascii', 0, 4) !== 'RIFF') {
+        return wavBase64;
+      }
+
+      // Read byteRate from standard WAV fmt chunk (offset 28, uint32LE) and blockAlign (offset 32, uint16LE)
+      const byteRate = buf.readUInt32LE(28) || 48000; // 24000 Hz * 2 bytes = 48000 bytes/sec
+      const blockAlign = buf.readUInt16LE(32) || 2;
+      const rawSilenceBytes = Math.floor((byteRate * silenceMs) / 1000);
+      const silenceByteCount = rawSilenceBytes - (rawSilenceBytes % blockAlign);
+
+      const header = Buffer.from(buf.subarray(0, 44));
+      const pcmData = buf.subarray(44);
+      const silencePad = Buffer.alloc(silenceByteCount, 0); // Pure digital zero PCM samples
+
+      const totalDataBytes = pcmData.length + silenceByteCount;
+      // Update RIFF chunk size at offset 4 (36 + Subchunk2Size)
+      header.writeUInt32LE(36 + totalDataBytes, 4);
+      // Update data Subchunk2Size at offset 40
+      if (header.toString('ascii', 36, 40) === 'data') {
+        header.writeUInt32LE(totalDataBytes, 40);
+      }
+
+      return Buffer.concat([header, silencePad, pcmData]).toString('base64');
+    } catch (err) {
+      logger.warn('WAV_SILENCE_PAD_SKIPPED', { error: String(err) });
+      return wavBase64;
+    }
+  }
+
+  /**
    * Stage 9: Voice Response Generation (Urdu / Pashto / English)
+   * Uses gemini-3.8-flash-tts and gemini-3.8-flash-lite-tts with speechMetadata style direction
+   * for authentic, human-sounding Pakistani Urdu and everyday Mardan Yusufzai Pashto voices.
    */
   async synthesizeSpeech(params: {
     text: string;
@@ -192,7 +232,7 @@ Return ONLY a JSON object with this exact structure:
       });
     }
 
-    const cacheKey = `tts:${lang}:${voicePersona}:${text.trim().slice(0, 300)}`;
+    const cacheKey = `tts-mardan-v5:${lang}:${voicePersona}:${text.trim().slice(0, 300)}`;
     const cachedAudio = cacheService.get<string>(cacheKey);
     if (cachedAudio) {
       return {
@@ -206,13 +246,13 @@ Return ONLY a JSON object with this exact structure:
     let styleInstruction = '';
     if (lang === 'ps') {
       styleInstruction =
-        'Warm, respectful, caring Pashtun elder farmer and agricultural advisor from Mardan, Khyber Pakhtunkhwa speaking natural, authentic Pashto (پښتو) with a genuine native Yusufzai Pashto accent. Speak clearly, warmly, and at a comfortable, unhurried pace as if talking face-to-face to a fellow villager in the field.';
+        'Warm, friendly Pashtun village farmer and elder brother from Mardan, Khyber Pakhtunkhwa speaking simple, everyday conversational Mardan Yusufzai Pashto (پښتو). Start speaking at full, clear volume from the very first word without fading in. Speak naturally, warmly, and simply as a local Mardan farmer talking to his neighbor in the field.';
     } else if (lang === 'ur') {
       styleInstruction =
-        'Warm, caring, trustworthy Pakistani agricultural elder (Kissan Dost) speaking natural, conversational Pakistani Urdu (اردو) with an authentic native Pakistani accent. Speak gently, respectfully, and clearly so a village farmer can easily understand every word.';
+        'Warm, caring, trustworthy Pakistani agricultural elder (Kissan Dost) speaking natural, conversational Pakistani Urdu (اردو) with an authentic native Pakistani accent. Start speaking at full, clear volume from the very first word without fading in. Speak gently, respectfully, and clearly so a village farmer can easily understand every word.';
     } else {
       styleInstruction =
-        'Warm, friendly Pakistani agricultural advisor speaking clear, simple, encouraging English at a measured pace for farmers.';
+        'Warm, friendly Pakistani agricultural advisor speaking clear, simple, encouraging English at full volume from the very first word.';
     }
 
     let base64Audio: string | undefined;
@@ -276,9 +316,12 @@ Return ONLY a JSON object with this exact structure:
       throw new Error('Could not synthesize voice audio.');
     }
 
-    cacheService.set(cacheKey, base64Audio, 1800);
+    // Prepend 500ms of clean digital PCM silence so browser/OS audio start never clips or fades the first 2 words
+    const paddedWavBase64 = this.prependLeadingSilenceToWav(base64Audio, 500);
+
+    cacheService.set(cacheKey, paddedWavBase64, 1800);
     return {
-      audioBase64: base64Audio,
+      audioBase64: paddedWavBase64,
       mimeType: 'audio/wav',
       cached: false,
     };
@@ -286,3 +329,5 @@ Return ONLY a JSON object with this exact structure:
 }
 
 export const geminiAiService = new GeminiAiService();
+
+

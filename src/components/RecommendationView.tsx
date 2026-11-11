@@ -133,11 +133,11 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     } else if (targetLang === 'ps') {
       script =
         ps?.voiceScript ||
-        `السلام علیکم زما ګرانه زمینداره وروره! ستاسو په فصل باندې ${
+        `السلام علیکم زما خوږه زمینداره وروره! ستاسو په فصل باندې ${
           ps?.disease || result.disease
-        } ناروغي لیدل کیږي. ${ps?.action || result.action} د شیندلو سم وخت ${
+        } بیماري لګېدلې ده. ${ps?.action || result.action} د سپرے سم وخت ${
           ps?.bestTime || result.bestTime
-        } دی. ${ps?.dosageText || ''} الله دې ستاسو په فصل کې برکت واچوي!`;
+        } دی. ${ps?.dosageText || ''} الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!`;
     } else {
       script = `Salam Farmer Brother! Your ${result.crop} crop has ${result.disease}. ${result.action} Best time to spray is ${result.bestTime}. Mix ${localizedDosage}.`;
     }

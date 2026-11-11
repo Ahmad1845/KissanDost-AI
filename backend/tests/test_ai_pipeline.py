@@ -1,5 +1,5 @@
 import pytest
-from app.ai.vision_pipeline import vision_pipeline
+from app.vision.vision_pipeline import vision_pipeline
 from app.rag.rag_service import rag_service
 from app.diagnosis.decision_engine import decision_engine
 from app.medicine.medicine_service import medicine_service

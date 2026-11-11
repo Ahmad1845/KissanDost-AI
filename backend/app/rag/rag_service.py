@@ -76,10 +76,13 @@ KNOWLEDGE_CORPUS: List[Dict[str, Any]] = [
 ]
 
 
+from app.embeddings.vector_scorer import vector_scorer
+
+
 class AgriculturalRagService:
     """
-    Stage 5: Retrieval-Augmented Generation (RAG) Service.
-    Uses vector embeddings / cosine similarity ranking over agricultural extension documents,
+    Retrieval-Augmented Generation (RAG) Service.
+    Uses token-vector and domain similarity ranking over agricultural extension documents,
     verified medicines, and government advisories.
     """
 
@@ -91,19 +94,13 @@ class AgriculturalRagService:
         district: str,
         top_k: int = 2,
     ) -> List[Dict[str, Any]]:
-        query_terms = set(
-            f"{crop} {predicted_class.replace('_', ' ')} {' '.join(symptoms)} {district}".lower().split()
-        )
+        query_text = f"{crop} {predicted_class.replace('_', ' ')} {' '.join(symptoms)} {district}"
 
         ranked: List[Dict[str, Any]] = []
         for doc in KNOWLEDGE_CORPUS:
-            doc_terms = set(
-                f"{doc['crop']} {doc['disease']} {doc['title']} {' '.join(doc['rules'])}".lower().split()
-            )
-            overlap = len(query_terms.intersection(doc_terms))
-            norm = max(1.0, float(np.sqrt(len(query_terms) * len(doc_terms))))
-            crop_boost = 0.45 if doc["crop"].lower() == crop.lower() else 0.0
-            score = round(min(0.99, (overlap / norm) + crop_boost), 3)
+            doc_text = f"{doc['crop']} {doc['disease']} {doc['title']} {' '.join(doc['rules'])}"
+            is_crop_match = doc["crop"].lower() == crop.lower()
+            score = vector_scorer.score_relevance(query_text, doc_text, is_crop_match)
             ranked.append({**doc, "relevanceScore": score})
 
         ranked.sort(key=lambda d: d["relevanceScore"], reverse=True)
@@ -111,3 +108,4 @@ class AgriculturalRagService:
 
 
 rag_service = AgriculturalRagService()
+

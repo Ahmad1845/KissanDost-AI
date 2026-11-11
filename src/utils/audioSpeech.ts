@@ -2,7 +2,7 @@ import { Language, VoicePersona } from '../types';
 
 export class VoiceAssistant {
   private static currentAudio: HTMLAudioElement | null = null;
-  private static clientCache = new Map<string, string>();
+  private static clientCache = new Map<string, { audioBase64: string; mimeType: string }>();
   private static activeAbortController: AbortController | null = null;
 
   static async speak(
@@ -17,12 +17,12 @@ export class VoiceAssistant {
     // Stop any currently playing audio
     this.stop();
 
-    const cacheKey = `${lang}:${voicePersona}:${text.trim().slice(0, 300)}`;
+    const cacheKey = `mardan-v5:${lang}:${voicePersona}:${text.trim().slice(0, 300)}`;
 
     try {
-      let base64Wav = this.clientCache.get(cacheKey);
+      let cachedItem = this.clientCache.get(cacheKey);
 
-      if (!base64Wav) {
+      if (!cachedItem) {
         if (onLoading) onLoading(true);
         this.activeAbortController = new AbortController();
 
@@ -41,16 +41,37 @@ export class VoiceAssistant {
         if (onLoading) onLoading(false);
 
         if (response.ok && data.success && data.audioBase64) {
-          base64Wav = data.audioBase64;
-          this.clientCache.set(cacheKey, base64Wav!);
+          cachedItem = {
+            audioBase64: data.audioBase64,
+            mimeType: data.mimeType || 'audio/wav',
+          };
+          this.clientCache.set(cacheKey, cachedItem);
         } else {
           throw new Error(data.message || 'Server TTS unavailable');
         }
       }
 
-      if (base64Wav) {
-        const audio = new Audio(`data:audio/wav;base64,${base64Wav}`);
+      if (cachedItem) {
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.volume = 1.0;
+        audio.src = `data:${cachedItem.mimeType};base64,${cachedItem.audioBase64}`;
         this.currentAudio = audio;
+
+        // Wait until the browser has decoded the WAV buffer before starting playback
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          const finish = () => {
+            if (!settled) {
+              settled = true;
+              resolve();
+            }
+          };
+          audio.addEventListener('canplaythrough', finish, { once: true });
+          audio.addEventListener('loadeddata', finish, { once: true });
+          setTimeout(finish, 180);
+          audio.load();
+        });
 
         audio.onplay = () => {
           if (onStart) onStart();

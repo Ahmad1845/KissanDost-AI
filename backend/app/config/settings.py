@@ -3,9 +3,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Environment-based configuration for KissanDost AI FastAPI Microservice."""
+    """Environment-based configuration for KissanDost AI FastAPI Backend."""
 
-    app_name: str = "KissanDost AI Microservice"
+    app_name: str = "KissanDost AI Backend"
     app_version: str = "3.0.0"
     app_env: str = "development"
     api_v1_prefix: str = "/api/v1"
@@ -19,11 +19,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
 
-    # Google Gemini AI & Multimodal Models
+    # Google Gemini AI Models
     gemini_api_key: str = ""
-    gemini_vision_model: str = "gemini-3.8-flash"
-    gemini_tts_model: str = "gemini-3.8-flash-tts"
-    gemini_embedding_model: str = " sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    gemini_vision_model: str = "gemini-2.5-flash"
+    gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
     gemini_timeout_seconds: float = 5.5
 
     # Rate Limiting & Caching

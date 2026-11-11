@@ -63,7 +63,7 @@ export const PesticideVerifier: React.FC<PesticideVerifierProps> = ({
     },
     {
       labelUr: 'کراٹے (کیڑے مار دوائی)',
-      labelPs: 'کراټې (د چینجي درمل)',
+      labelPs: 'کراټې (د چینجي دوایي)',
       labelEn: 'Karate (Insect Spray)',
       query: 'Lambda-cyhalothrin',
       safe: false,
