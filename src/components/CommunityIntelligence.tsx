@@ -1,3 +1,4 @@
+// KissanDost AI — KP District Disease Outbreak Surveillance
 import React, { useState, useEffect } from 'react';
 import {
   Radio,

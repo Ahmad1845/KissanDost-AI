@@ -15,7 +15,7 @@ import { LeafBiomarkersSchema } from '../schemas/apiSchemas.ts';
 import { logger } from '../middleware/apiMiddleware.ts';
 
 /**
- * Modular Computer Vision & ML Inference Service
+ * Modular Computer Vision & ML Inference Service (src/backend/vision/imagePipeline.ts)
  * Implements Stages 1 to 4 of the 10-Stage AI Pipeline:
  *   Stage 1: Image Validation (MIME, payload integrity, size bounds)
  *   Stage 2: Image Preprocessing & Quantitative RGB/HSV Biomarker Extraction

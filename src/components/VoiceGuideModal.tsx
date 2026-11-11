@@ -1,3 +1,4 @@
+// KissanDost AI — Interactive Urdu & Mardan Pashto Voice Assistant Modal
 import React, { useState, useEffect } from 'react';
 import {
   Volume2,

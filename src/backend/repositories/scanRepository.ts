@@ -1,3 +1,4 @@
+// Scan & Outbreak Repository (src/backend/repositories/scanRepository.ts)
 export interface OutbreakReportRecord {
   id: string;
   district: string;

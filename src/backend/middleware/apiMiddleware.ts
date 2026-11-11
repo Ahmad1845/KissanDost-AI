@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { settings } from '../config/settings.ts';
 
-// ==================== STRUCTURED LOGGER ====================
+// ==================== STRUCTURED JSON LOGGER ====================
 export const logger = {
   info(event: string, meta: Record<string, unknown> = {}) {
     console.log(

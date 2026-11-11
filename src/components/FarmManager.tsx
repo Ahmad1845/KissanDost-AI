@@ -1,3 +1,4 @@
+// KissanDost AI — Farm Profile & Crop Recovery Timeline Manager
 import React, { useState } from 'react';
 import {
   Plus,

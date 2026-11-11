@@ -16,7 +16,7 @@ export interface LocalizedDistrictOutbreak extends DistrictStat {
 }
 
 /**
- * Dedicated Community Outbreak & Epidemiological Surveillance Service
+ * Dedicated Community Outbreak & Epidemiological Surveillance Service (src/backend/community/outbreakService.ts)
  */
 export class OutbreakSurveillanceService {
   private districtNamesUr: Record<string, string> = {

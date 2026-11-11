@@ -51,7 +51,8 @@ async function setupServer() {
 
   app.listen(settings.port, '0.0.0.0', () => {
     logger.info('SERVER_LISTENING', {
-      url: `http://0.0.0.0:${settings.port}`,
+      url: `http://localhost:${settings.port}`,
+      networkUrl: `http://0.0.0.0:${settings.port}`,
       version: settings.version,
     });
   });

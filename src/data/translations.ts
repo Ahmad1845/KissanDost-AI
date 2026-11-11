@@ -1,3 +1,4 @@
+// Multilingual Translations: English, Pakistani Urdu, and Mardan Yusufzai Pashto (src/data/translations.ts)
 export type Language = 'en' | 'ur' | 'ps';
 
 export interface TranslationStrings {

@@ -1,3 +1,4 @@
+"""Computer Vision & MLP Inference Pipeline (backend/app/vision/vision_pipeline.py)."""
 import base64
 import re
 from typing import Dict, Any, List, Optional

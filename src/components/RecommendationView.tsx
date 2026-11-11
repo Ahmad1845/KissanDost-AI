@@ -1,3 +1,4 @@
+// KissanDost AI — 3-Step Farmer Recommendation & Voice Guidance View
 import React, { useState } from 'react';
 import {
   Volume2,

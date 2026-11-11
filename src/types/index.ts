@@ -1,3 +1,4 @@
+// Frontend Domain Types (src/types/index.ts)
 export type Language = 'en' | 'ur' | 'ps';
 export type UserRole = 'farmer' | 'officer';
 export type VoicePersona = 'elder' | 'female';

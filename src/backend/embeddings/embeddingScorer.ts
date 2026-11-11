@@ -1,5 +1,5 @@
 /**
- * Token-vector and domain-feature similarity scorer for RAG document ranking.
+ * Token-vector and domain-feature similarity scorer for RAG document ranking (src/backend/embeddings/embeddingScorer.ts).
  */
 export class EmbeddingSimilarityScorer {
   tokenize(text: string): string[] {

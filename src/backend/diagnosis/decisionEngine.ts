@@ -1,7 +1,7 @@
 import { DecisionEngineInput, DecisionEngineOutput } from '../schemas/apiSchemas.ts';
 
 /**
- * Dedicated Agronomic Decision Engine
+ * Rule-Based Agronomic Decision Engine (src/backend/diagnosis/decisionEngine.ts)
  * Stage 7 of the 10-Stage AI Pipeline
  *
  * Strictly separates deterministic agricultural business rules from LLM prompts.
@@ -14,7 +14,7 @@ import { DecisionEngineInput, DecisionEngineOutput } from '../schemas/apiSchemas
  * Outputs:
  *   - diagnosis, severity, recommended treatment, warnings,
  *     spray timing, irrigation advice, explainable AI confidence explanation,
- *     and complete Urdu (ur) & Pashto (ps) farmer scripts.
+ *     and complete Urdu (ur) & Mardan Pashto (ps) farmer scripts.
  */
 export class AgronomicDecisionEngine {
   evaluate(input: DecisionEngineInput): DecisionEngineOutput {

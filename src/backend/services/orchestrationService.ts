@@ -5,7 +5,7 @@ import { scanRepository } from '../repositories/scanRepository.ts';
 import { logger } from '../middleware/apiMiddleware.ts';
 
 /**
- * AI Diagnosis Pipeline Orchestration Service
+ * AI Diagnosis Pipeline Orchestration Service (src/backend/services/orchestrationService.ts)
  *
  * Delegates stage execution to `diagnosisPipeline` (`pipelines/diagnosisPipeline.ts`)
  * and handles API response assembly and background outbreak logging.

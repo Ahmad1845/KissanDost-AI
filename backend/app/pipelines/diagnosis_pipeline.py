@@ -1,3 +1,4 @@
+"""Multi-Stage Crop Diagnosis Pipeline (backend/app/pipelines/diagnosis_pipeline.py)."""
 from typing import Dict, Any
 from app.schemas.domain import DiagnosisRequest
 from app.vision.vision_pipeline import vision_pipeline

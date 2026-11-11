@@ -1,3 +1,4 @@
+"""Gemini Multimodal LLM Client (backend/app/llm/gemini_client.py)."""
 from typing import Dict, Any, Optional
 from app.config.settings import get_settings
 from app.utils.logger import logger

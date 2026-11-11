@@ -6,7 +6,7 @@ import { decisionEngine } from '../diagnosis/decisionEngine.ts';
 import { geminiAiService } from '../llm/geminiService.ts';
 
 /**
- * Multi-Stage Crop Diagnosis Pipeline
+ * Multi-Stage Crop Diagnosis Pipeline (src/backend/pipelines/diagnosisPipeline.ts)
  * Coordinates Image Validation -> Biomarker Extraction -> Disease Classification ->
  * Weather API -> RAG Retrieval -> Rule-Based Decision Engine -> Gemini Synthesis.
  */

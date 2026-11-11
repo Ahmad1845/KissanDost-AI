@@ -1,5 +1,6 @@
 import { cacheService, logger } from '../middleware/apiMiddleware.ts';
 
+// KP District Coordinates for Open-Meteo Integration
 export const KP_COORDINATES: Record<string, { lat: number; lng: number }> = {
   Mardan: { lat: 34.1989, lng: 72.0404 },
   Swabi: { lat: 34.1202, lng: 72.4705 },

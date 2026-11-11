@@ -1,3 +1,4 @@
+// KissanDost AI — Leaf Camera & HSV Biomarker Scanner Modal
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, CheckCircle2, Loader2, AlertCircle, Check, ChevronDown } from 'lucide-react';
 import { Language, Farm, RecommendationResult } from '../types';

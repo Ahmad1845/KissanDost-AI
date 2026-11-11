@@ -1,3 +1,4 @@
+// KP Agriculture Extension & PARC Knowledge Base (src/data/knowledgeBase.ts)
 export interface KnowledgeDoc {
   id: string;
   crop: string;

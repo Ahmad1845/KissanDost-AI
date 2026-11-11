@@ -1,3 +1,4 @@
+// Domain Contracts & API Schemas (src/backend/schemas/apiSchemas.ts)
 export interface LeafBiomarkersSchema {
   greenHealthyPct: number;
   yellowChloroticPct: number;

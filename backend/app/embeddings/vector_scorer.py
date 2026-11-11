@@ -1,3 +1,4 @@
+"""Token-Vector & Domain Similarity Scorer (backend/app/embeddings/vector_scorer.py)."""
 import math
 from typing import Set
 

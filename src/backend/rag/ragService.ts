@@ -3,7 +3,7 @@ import { RankedRagDocument } from '../schemas/apiSchemas.ts';
 import { embeddingScorer } from '../embeddings/embeddingScorer.ts';
 
 /**
- * Retrieval-Augmented Generation (RAG) Service
+ * Retrieval-Augmented Generation (RAG) Service (src/backend/rag/ragService.ts)
  *
  * Responsibilities:
  * - Retrieve agricultural extension documents (KP Agriculture Dept & PARC manuals)

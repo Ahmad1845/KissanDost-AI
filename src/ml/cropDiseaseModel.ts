@@ -1,8 +1,8 @@
 /**
- * KissanDost AI — Trainable Multi-Layer Perceptron (MLP) Neural Network
+ * KissanDost AI — Multi-Layer Perceptron (MLP) Neural Network
  * for Crop Disease Classification & Weather-Aware Spray Decision Prediction.
  *
- * Implements real forward propagation, ReLU activation, Softmax output probabilities,
+ * Implements forward propagation, LeakyReLU activation, Softmax output probabilities,
  * Cross-Entropy loss with L2 regularization, Backpropagation, and Mini-Batch SGD with Momentum.
  */
 

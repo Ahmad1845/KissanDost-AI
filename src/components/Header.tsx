@@ -1,3 +1,4 @@
+// KissanDost AI — Top Navigation & Language Switcher
 import React from 'react';
 import { Sprout, Volume2, PhoneCall, ShieldAlert } from 'lucide-react';
 import { Language, UserRole, Farm } from '../types';
