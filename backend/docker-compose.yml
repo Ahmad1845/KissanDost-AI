@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kissandost-fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/kissandost
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-kissandost-kp-secret-key-2026}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: kissandost-pgvector
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kissandost
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kissandost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: kissandost-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,6 @@
+{
+  "name": "KissanDost AI - Agricultural Decision Support System",
+  "description": "AI-powered agricultural decision support platform for farmers in Pakistan with weather-aware disease detection, RAG-grounded treatment plans, and community outbreak intelligence.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
