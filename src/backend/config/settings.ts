@@ -1,6 +1,12 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ override: false });
+
+const rawApiKey = (process.env.GEMINI_API_KEY || '').trim();
+const cleanApiKey =
+  rawApiKey === 'your_gemini_api_key_here' || rawApiKey === 'YOUR_GEMINI_API_KEY'
+    ? ''
+    : rawApiKey;
 
 export interface BackendSettings {
   appName: string;
@@ -23,7 +29,7 @@ export const settings: BackendSettings = {
   version: '3.0.0',
   environment: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 3000,
-  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiApiKey: cleanApiKey,
   geminiVisionModel: process.env.GEMINI_VISION_MODEL || 'gemini-3.8-flash',
   geminiTtsPrimaryModel: process.env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts',
   geminiTtsFallbackModel: 'gemini-3.8-flash-lite-tts',

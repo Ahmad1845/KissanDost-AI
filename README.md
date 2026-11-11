@@ -2,7 +2,7 @@
 
 **Scalable AI Backend Architecture & Multilingual Agricultural Decision Support System for Khyber Pakhtunkhwa, Pakistan**
 
-KissanDost AI is a production-inspired AI backend and voice-first mobile web application built for smallholder farmers across Khyber Pakhtunkhwa (Mardan, Swabi, Charsadda, Peshawar, Nowshera, Malakand, and Swat). It combines an image analysis pipeline, an MLP-based classifier for crop disease classification, a Rule-Based Decision Engine independent of the LLM, Retrieval-Augmented Generation (RAG) over KP Agriculture Extension manuals, live district weather integration, and native **Urdu (اردو)** and **Pashto (پښتو)** voice guidance.
+KissanDost AI is a production-inspired AI backend and voice-first mobile web application built for smallholder farmers across Khyber Pakhtunkhwa (Mardan, Swabi, Charsadda, Peshawar, Nowshera, Malakand, and Swat). It combines an HSV computer vision pipeline, an MLP-based classifier for crop disease classification, a Rule-Based Decision Engine independent of the LLM, Retrieval-Augmented Generation (RAG) over KP Agriculture Extension manuals, live district weather integration, and natural **Pakistani Urdu (اردو)** and **everyday Mardan Yusufzai Pashto (پښتو)** voice guidance.
 
 ---
 
@@ -13,14 +13,15 @@ KissanDost AI is a production-inspired AI backend and voice-first mobile web app
 3. [Architecture Diagram](#3-architecture-diagram)
 4. [Request Flow](#4-request-flow)
 5. [Why the Decision Engine Exists](#5-why-the-decision-engine-exists)
-6. [Repository Structure](#6-repository-structure)
-7. [Backend File-by-File Guide](#7-backend-file-by-file-guide)
-8. [Frontend File-by-File Guide](#8-frontend-file-by-file-guide)
-9. [REST API Reference & Response Example](#9-rest-api-reference--response-example)
-10. [Security](#10-security)
-11. [Testing](#11-testing)
-12. [Setup & Deployment](#12-setup--deployment)
-13. [Future Improvements](#13-future-improvements)
+6. [Voice & Dialect Engineering (Mardan Pashto & Urdu)](#6-voice--dialect-engineering-mardan-pashto--urdu)
+7. [Repository Structure](#7-repository-structure)
+8. [Backend File-by-File Guide](#8-backend-file-by-file-guide)
+9. [Frontend File-by-File Guide](#9-frontend-file-by-file-guide)
+10. [REST API Reference & Response Example](#10-rest-api-reference--response-example)
+11. [Security](#11-security)
+12. [Testing](#12-testing)
+13. [Setup & Deployment](#13-setup--deployment)
+14. [Future Improvements](#14-future-improvements)
 
 ---
 
@@ -33,7 +34,7 @@ KissanDost AI addresses these challenges through a modular backend architecture:
 - **Computer Vision & Disease Prediction (`vision/`)**: Extracts quantitative RGB/HSV leaf color biomarkers (healthy green, chlorotic yellow halo, and necrotic brown tissue) using center-weighted region-of-interest (ROI) segmentation and runs a custom neural network designed for crop disease prediction.
 - **Rule-Based Decision Engine (`diagnosis/`)**: Evaluates disease predictions, district weather forecasts, and pre-harvest safety intervals independently of the LLM.
 - **RAG Retrieval (`rag/` & `embeddings/`)**: Ranks agricultural extension advisories, dosage tables, and approved pesticide records from KP Agriculture Department and PARC manuals.
-- **Multimodal LLM & Voice Synthesis (`llm/` & `voice/`)**: Uses Google Gemini (`gemini-2.5-flash`) for grounded Urdu and Pashto farmer explanations and the Gemini Speech/TTS API for spoken audio guidance.
+- **Multimodal LLM & Voice Synthesis (`llm/` & `voice/`)**: Synthesizes grounded farmer explanations and natural spoken audio in **Pakistani Urdu** and **everyday Mardan / Peshawar spoken Pashto** with zero-clipping WAV PCM silence padding.
 
 ---
 
@@ -43,9 +44,9 @@ Every technology listed below is implemented directly in this repository:
 
 ### AI & Machine Learning Layer
 - **Python 3.12+** & **TypeScript 5.8**
-- **Google Gemini API (`gemini-2.5-flash`)** — Multimodal leaf inspection and RAG-grounded explanation synthesis
-- **Google Gemini TTS API (`gemini-2.5-flash-preview-tts`)** — Native Urdu (اردو), Pashto (پښتو), and English speech synthesis
-- **OpenCV (`opencv-python-headless`) & Canvas HSV Segmentation** — Leaf color-space segmentation and necrotic lesion extraction
+- **Google Gemini Vision & LLM API** — Multimodal leaf inspection and RAG-grounded explanation synthesis
+- **Google Gemini Speech / TTS API** — Native Pakistani Urdu (`اردو`), everyday Mardan Yusufzai Pashto (`پښتو`), and English speech synthesis with `speechMetadata` style steering and 500ms RIFF WAV PCM leading silence padding
+- **OpenCV (`opencv-python-headless`) & Canvas HSV ROI Segmentation** — Center-weighted leaf color-space segmentation (`greenHealthyPct`, `yellowChloroticPct`, `brownNecroticPct`) and necrotic lesion detection
 - **MLP-Based Classifier (`scikit-learn` / `NumPy` / TypeScript MLP)** — Custom 2-layer neural network designed for crop disease prediction across 14 agronomic features
 - **RAG & Token-Vector Similarity (`embeddings/`)** — Lexical and domain-feature similarity ranking over KP Agriculture Extension documents
 
@@ -122,13 +123,13 @@ JSON Response
 ```
 
 1. **Upload Image & Validation**: Validates MIME type, base64 payload integrity, and image dimensions.
-2. **OpenCV / HSV Preprocessing**: Extracts center-weighted leaf color biomarkers (`greenHealthyPct`, `yellowChloroticPct`, `brownNecroticPct`).
+2. **OpenCV / HSV Preprocessing**: Performs center-weighted region-of-interest (ROI) HSV segmentation to measure leaf color biomarkers (`greenHealthyPct`, `yellowChloroticPct`, `brownNecroticPct`) while ignoring background soil and out-of-focus bokeh.
 3. **Disease Prediction**: Passes the 14-feature vector (biomarkers, crop one-hot encoding, visible symptoms, and weather indicators) through the MLP-based classifier.
 4. **Weather API**: Queries Open-Meteo for the farmer's KP district (temperature, humidity, wind speed, and rain probability).
 5. **RAG Retrieval**: Scores and retrieves the top-matching KP Agriculture Extension guidelines and approved fungicide dosages.
 6. **Decision Engine**: Applies deterministic agronomic and weather safety rules (such as delaying sprays before rain and enforcing pre-harvest withholding intervals).
-7. **Gemini (`gemini-2.5-flash`)**: Synthesizes simple, jargon-free farmer guidance in Urdu, Pashto, and English grounded on the Decision Engine output and RAG context.
-8. **Voice Generation & JSON Response**: Prepares the spoken Urdu and Pashto scripts (and audio stream via `/api/v1/voice/query`) and returns the structured JSON response while logging outbreak data in a background task.
+7. **Gemini**: Synthesizes simple, jargon-free farmer guidance in Pakistani Urdu, everyday Mardan Pashto, and English grounded on the Decision Engine output and RAG context.
+8. **Voice Generation & JSON Response**: Prepares the spoken Urdu and Mardan Pashto scripts (and 500ms silence-padded WAV audio via `/api/v1/voice/query`) and returns the structured JSON response while logging outbreak data in a background task.
 
 ---
 
@@ -141,11 +142,23 @@ Key rules enforced by the Decision Engine (`backend/app/diagnosis/decision_engin
 - **Wind Drift Prevention**: Warns against afternoon spraying when wind speeds exceed 18 km/h.
 - **Morning Dew Rule for Wheat Rust**: Instructs farmers to wait until heavy morning dew dries (after 9:00 AM) before applying Propiconazole (`Tilt 250 EC`).
 - **Pre-Harvest Interval (PHI) Enforcement**: Enforces mandatory waiting periods before harvest (7 days for Mancozeb on Tomato and Maize fodder; 28 days for Propiconazole on Wheat).
-- **False-Healthy Protection**: Prevents leaves with necrotic brown (`>= 5%`) or chlorotic yellow (`>= 8%`) lesions from being misclassified as healthy plants.
+- **Multi-Layer False-Healthy Protection**: Prevents leaves with necrotic brown (`>= 5%`) or chlorotic yellow (`>= 8%`) lesions from being misclassified as healthy plants—even if 60%–75% of the surrounding foliage is green—and rejects any LLM output that attempts to label a lesioned leaf as healthy.
 
 ---
 
-## 6. Repository Structure
+## 6. Voice & Dialect Engineering (Mardan Pashto & Urdu)
+
+Low-literacy farmers in the Peshawar Valley (Mardan, Swabi, Charsadda, Peshawar, Nowshera) speak **everyday Yusufzai Pashto**, not formal/literary bookish Pashto. KissanDost AI is tailored specifically for natural comprehension and crisp audio playback:
+
+1. **Everyday Mardan Yusufzai Pashto Vocabulary**:
+   - Uses familiar spoken farmer terms: **`ټماټر`** (tomato) instead of `رومیان`, **`دوایي`** (medicine) instead of `درمل`, **`سپرے وکړئ`** (spray) instead of `وشیندئ`, **`بیماري`** (disease) instead of `ناروغي`, **`شبنم`** (morning dew) instead of `پرخه`, **`لاندې پاڼې`** (lower leaves) instead of `لاندینۍ پاڼې`, **`زمینداره وروره`** (farmer brother) instead of `کروندګره`, and **`ضلع`** (district) instead of `ولسوالۍ`.
+2. **Zero-Clipping RIFF WAV Leading Silence Padding (`500ms`)**:
+   - Raw TTS WAV streams begin speech at sample `0` (`t = 0.00s`). When browsers initialize `<audio>` playback, OS/speaker hardware wake-up latency (`~300–450ms`) can fade or clip the first two words (`"السلام علیکم..."`).
+   - `prependLeadingSilenceToWav` (`src/backend/llm/geminiService.ts`) parses the 44-byte RIFF WAV header, injects `500ms` of digital zero-PCM samples (`24,000` samples at 24kHz 16-bit mono) before sample `0`, updates the `RIFF` and `data` chunk sizes, and pairs with client-side `canplaythrough` pre-buffering (`src/utils/audioSpeech.ts`) so the very first syllable plays at 100% volume and clarity.
+
+---
+
+## 7. Repository Structure
 
 The backend is organized into clean, single-responsibility modules with `vision/`, `llm/`, `embeddings/`, and `pipelines/` separated for scalability:
 
@@ -160,7 +173,7 @@ The backend is organized into clean, single-responsibility modules with `vision/
 │   │   ├── vision/
 │   │   │   └── vision_pipeline.py            # Image validation, OpenCV HSV segmentation & MLP classifier
 │   │   ├── llm/
-│   │   │   └── gemini_client.py              # Gemini 2.5 Flash grounded recommendation synthesis
+│   │   │   └── gemini_client.py              # Gemini grounded recommendation synthesis
 │   │   ├── embeddings/
 │   │   │   └── vector_scorer.py              # Token-vector & domain similarity scorer for RAG
 │   │   ├── pipelines/
@@ -206,7 +219,7 @@ The backend is organized into clean, single-responsibility modules with `vision/
 │   ├── backend/                              # TypeScript Modular Backend Gateway (Port 3000)
 │   │   ├── api/v1Router.ts                   # Express REST router (/api/v1/*)
 │   │   ├── vision/imagePipeline.ts           # Image validation, biomarker calibration & MLP inference
-│   │   ├── llm/geminiService.ts              # Gemini 2.5 Flash & Gemini TTS integration
+│   │   ├── llm/geminiService.ts              # Gemini Vision & TTS integration with 500ms WAV silence pad
 │   │   ├── embeddings/embeddingScorer.ts     # Token-vector similarity scorer for RAG ranking
 │   │   ├── pipelines/diagnosisPipeline.ts    # Multi-stage diagnosis pipeline coordinator
 │   │   ├── diagnosis/decisionEngine.ts       # Rule-Based Decision Engine independent of the LLM
@@ -224,7 +237,7 @@ The backend is organized into clean, single-responsibility modules with `vision/
 │   ├── components/                           # Mobile-first React UI components
 │   ├── data/                                 # KP agricultural corpus & Urdu/Pashto/English translations
 │   ├── types/                                # Frontend TypeScript interfaces
-│   ├── utils/                                # Client audio playback & Web Speech fallback
+│   ├── utils/                                # Client audio pre-buffering & Web Speech fallback
 │   ├── App.tsx                               # Main application shell
 │   └── index.css                             # Tailwind CSS 4 & RTL typography rules
 │
@@ -236,7 +249,7 @@ The backend is organized into clean, single-responsibility modules with `vision/
 
 ---
 
-## 7. Backend File-by-File Guide
+## 8. Backend File-by-File Guide
 
 ### Vision, LLM, Embeddings & Pipelines
 - **`backend/app/vision/vision_pipeline.py` & `src/backend/vision/imagePipeline.ts`**:
@@ -244,7 +257,7 @@ The backend is organized into clean, single-responsibility modules with `vision/
 - **`src/ml/cropDiseaseModel.ts`**:
   Implements the 2-layer MLP neural network (`14 input features → 28 hidden units with LeakyReLU → 5 output classes`: `Tomato_Early_Blight`, `Tomato_Late_Blight`, `Wheat_Yellow_Rust`, `Maize_Northern_Leaf_Blight`, `Healthy_Crop`) with mini-batch gradient descent, momentum, and L2 regularization, plus agronomic lesion guards.
 - **`backend/app/llm/gemini_client.py` & `src/backend/llm/geminiService.ts`**:
-  Interfaces with `gemini-2.5-flash` for multimodal leaf analysis and RAG-grounded explanation generation, and `gemini-2.5-flash-preview-tts` for native Urdu and Pashto speech synthesis. Includes a post-generation check so LLM outputs cannot override disease detections with false-healthy labels.
+  Interfaces with Gemini for multimodal leaf analysis and RAG-grounded explanation generation, and Gemini TTS for native Pakistani Urdu and everyday Mardan Pashto speech synthesis. Includes `prependLeadingSilenceToWav` (`500ms` digital silence buffer) and a post-generation safety guard so LLM outputs cannot override disease detections with false-healthy labels.
 - **`backend/app/embeddings/vector_scorer.py` & `src/backend/embeddings/embeddingScorer.ts`**:
   Tokenizes queries and agricultural extension documents and computes normalized token-overlap and crop-domain similarity scores.
 - **`backend/app/pipelines/diagnosis_pipeline.py` & `src/backend/pipelines/diagnosisPipeline.ts`**:
@@ -252,7 +265,7 @@ The backend is organized into clean, single-responsibility modules with `vision/
 
 ### Domain Services, Repositories & Middleware
 - **`backend/app/diagnosis/decision_engine.py` & `src/backend/diagnosis/decisionEngine.ts`**:
-  Rule-Based Decision Engine independent of the LLM. Maps disease classes, biomarker thresholds, and district weather into spray timing windows, chemical dosages, organic alternatives, and Urdu/Pashto farmer voice scripts.
+  Rule-Based Decision Engine independent of the LLM. Maps disease classes, biomarker thresholds, and district weather into spray timing windows, chemical dosages, organic alternatives, and Urdu/Mardan-Pashto farmer voice scripts.
 - **`backend/app/rag/rag_service.py` & `src/backend/rag/ragService.ts`**:
   Retrieves and ranks official KP Agriculture Department, ARI Tarnab, CCRI Pirsabak, and PARC guidelines and formats the top-K context block.
 - **`backend/app/weather/weather_service.py` & `src/backend/weather/weatherService.ts`**:
@@ -266,32 +279,62 @@ The backend is organized into clean, single-responsibility modules with `vision/
 
 ---
 
-## 8. Frontend File-by-File Guide
+## 9. Frontend File-by-File Guide
 
 - **`src/App.tsx`**: Main application shell featuring a focused Hero section (dominant camera CTA, collapsible voice drawer, and compact weather bar), Recent Diagnosis card with `72x72` leaf thumbnail, and sticky 5-tab bottom navigation.
-- **`src/components/CropScanModal.tsx`**: Camera and photo upload modal with client-side image compression, HSV + center-weighted leaf biomarker extraction, drag-and-drop upload, automatic symptom synchronization, and mutually exclusive healthy/diseased symptom selection.
-- **`src/components/RecommendationView.tsx`**: 3-step farmer decision view (*1. What is the problem? 2. When to spray? 3. Which medicine & how much to mix?*) with one-tap Urdu and Pashto voice playback and WhatsApp sharing.
+- **`src/components/CropScanModal.tsx`**: Camera and photo upload modal with client-side image compression, HSV + center-weighted ROI leaf biomarker extraction, drag-and-drop upload, automatic symptom synchronization, and mutually exclusive healthy/diseased symptom selection.
+- **`src/components/RecommendationView.tsx`**: 3-step farmer decision view (*1. What is the problem? 2. When to spray? 3. Which medicine & how much to mix?*) with one-tap Urdu and Mardan Pashto voice playback and WhatsApp sharing.
 - **`src/components/VoiceGuideModal.tsx`**: Voice assistant modal with a concise summary card, primary play button, collapsible full transcript drawer, and interactive farmer Q&A chips.
-- **`src/components/PesticideVerifier.tsx`**: Medicine authenticity and safety checker with unified search card, quick-select chips, and status badges (`✅ Safe & Approved`, `⚠️ Caution`, `❌ Restricted / Banned`).
+- **`src/components/PesticideVerifier.tsx`**: **AI Spray Advisor & Medicine Assistant** featuring 6 workflows:
+  1. **📷 Scan Bottle (OCR + Vision AI)**: Extracts Brand Name (`Aliette 80 WG`, `Dithane M-45`, `Tilt 250 EC`), Active Ingredient, Company, Registration Number, Mfg/Expiry Dates, Batch Number, and Barcode/QR Code; checks counterfeit & expiry status; evaluates a 9-point Smart Compatibility Matrix (Crop, Disease, Growth Stage, Weather, Temperature, Rain, Wind, Previous Spray rotation, and PHI); calculates exact dosage (`2g/L`, `15L tank`, `1 Acre`); and speaks guidance in Urdu & Mardan Pashto.
+  2. **🔍 Search by Name**: Instant chemical registry lookup.
+  3. **📦 Scan Barcode**: Instant barcode database identification when bottle image quality is blurry.
+  4. **🧪 "Can I Mix These Two Medicines?" (Conservative Tank-Mix Advisor)**: Evaluates `Medicine A + Medicine B → Safe to Mix? YES / NO → Reason → Recommended Ratio → Alternative if Unsafe` using strict conservative agronomy rules (never approving unverified chemical mixtures).
+  5. **⚖️ Medicine Comparison (A vs B)**: Side-by-side comparison of Authenticity, Crop Suitability, Price (PKR), Effectiveness, Toxicity, Dosage, and PHI.
+  6. **📋 Spray History**: Longitudinal log of past medicine scans and treatments (`Medicine ↓ Crop ↓ Date ↓ Result`).
 - **`src/components/FarmManager.tsx`**: Spacious farm cards (`🌱 Crop · District · Acres`) and longitudinal crop recovery timeline.
 - **`src/components/CommunityIntelligence.tsx` & `src/components/GovernmentDashboard.tsx`**: District outbreak cluster alerts for farmers and regional surveillance tables for KP Agriculture Extension Officers.
+- **`src/utils/audioSpeech.ts`**: Client-side audio controller that pre-buffers WAV streams (`canplaythrough` / `loadeddata`) at full volume (`1.0`) before playback and caches synthesized audio by language and persona.
 
 ---
 
-## 9. REST API Reference & Response Example
+## 10. REST API Reference & Response Example
 
 ### Core Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/api/v1/diagnosis` | Runs the full crop diagnosis pipeline on an uploaded leaf image |
-| `POST` | `/api/v1/voice/query` | Synthesizes spoken Urdu (`ur`), Pashto (`ps`), or English (`en`) audio |
+| `POST` | `/api/v1/medicine/scan-bottle` | **AI Spray Advisor**: OCR + Vision bottle scan, counterfeit/expiry detection, 9-point weather/crop compatibility, exact dosage, and Urdu/Pashto voice scripts |
+| `POST` | `/api/v1/medicine/barcode` | Instant pesticide barcode database lookup (no-AI fallback for blurry bottle photos) |
+| `POST` | `/api/v1/medicine/compare` | Side-by-side comparison of Medicine A vs Medicine B (Genuine, Suitable, Cost PKR, Effectiveness, Toxicity, PHI) |
+| `POST` | `/api/v1/medicine/mix-check` | **Conservative Tank-Mix Advisor**: Evaluates whether Medicine A and Medicine B are safe to mix in the same 15L tank |
+| `GET/POST` | `/api/v1/medicine/history` | Retrieves or saves longitudinal farmer medicine scan & spray history |
 | `POST` | `/api/v1/medicine/check` | Verifies whether a pesticide or fungicide is approved, restricted, or banned |
+| `POST` | `/api/v1/voice/query` | Synthesizes spoken Urdu (`ur`), Mardan Pashto (`ps`), or English (`en`) WAV audio with 500ms leading silence padding |
 | `GET` | `/api/v1/weather?district=Mardan` | Returns real-time district weather and spray window suitability |
 | `GET` | `/api/v1/community/outbreaks` | Returns aggregated village and district disease outbreak clusters |
 | `GET` | `/api/v1/history?page=1&limit=20` | Returns paginated diagnosis scan history |
 | `POST` | `/api/v1/feedback` | Records farmer helpfulness ratings and comments |
 | `GET` | `/api/v1/health` | Returns service health, model version, and cache status |
+
+### AI Spray Advisor Pipeline (`/api/v1/medicine/scan-bottle`)
+
+```text
+Bottle Image
+  ↓
+OCR + Vision AI
+  ↓
+Medicine Database & Counterfeit/Expiry Verification
+  ↓
+Open-Meteo District Weather API
+  ↓
+9-Point Smart Compatibility & Decision Engine
+  ↓
+Dosage (1L / 15L Knapsack / 1 Acre) & Safety Recommendation
+  ↓
+Pakistani Urdu & Mardan Pashto Voice Output
+```
 
 ### Example `POST /api/v1/diagnosis` Response
 
@@ -339,7 +382,7 @@ Full API response payload returned by `/api/v1/diagnosis`:
         "ppe": "Tie a cloth over nose and mouth and wash hands with soap after spraying"
       }
     ],
-    " groundedSources": [
+    "groundedSources": [
       {
         "title": "Advisory 2026/EB: Management of Tomato Early Blight in Mardan & Peshawar Valley",
         "source": "KP Agriculture Dept",
@@ -353,6 +396,20 @@ Full API response payload returned by `/api/v1/diagnosis`:
       "windSpeed": 7,
       "rainProbability": 55,
       "spraySuitability": "Delay Spray — Rain Risk"
+    },
+    "translations": {
+      "ur": {
+        "cropName": "ٹماٹر",
+        "disease": "ٹماٹر کے پتوں کا جھلساؤ (ارلی بلائیٹ)",
+        "action": "آج بارش کا امکان ہے اس لیے آج اسپرے ہرگز نہ کریں! کل صبح ۷ سے ۱۰ بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔",
+        "medicineName": "مینکوزیب (ڈائیتھین ایم-۴۵)"
+      },
+      "ps": {
+        "cropName": "ټماټر",
+        "disease": "د ټماټرو د پاڼو سوځېدل (ارلي بلایټ بیماري)",
+        "action": "نن د باران امکان شته، نو نن بالکل سپرے مه کوئ! سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د مینکوزیب دوایۍ سپرے وکړئ.",
+        "medicineName": "مینکوزیب دوایي (ډایتین ایم-۴۵)"
+      }
     }
   }
 }
@@ -360,7 +417,7 @@ Full API response payload returned by `/api/v1/diagnosis`:
 
 ---
 
-## 10. Security
+## 11. Security
 
 The backend implements layered security controls across both the FastAPI and Express services:
 
@@ -375,7 +432,7 @@ The backend implements layered security controls across both the FastAPI and Exp
 
 ---
 
-## 11. Testing
+## 12. Testing
 
 Automated tests are located in `backend/tests/test_ai_pipeline.py` and executed in CI via `.github/workflows/ci-cd.yml`.
 
@@ -401,34 +458,42 @@ npm run build
 
 ---
 
-## 12. Setup & Deployment
+## 13. Setup & Deployment (Local Machine & Docker)
 
-### 1. Environment Variables
-Copy `.env.example` to `.env` and configure your server-side credentials:
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-JWT_SECRET_KEY=kissandost-kp-secret-key
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/kissandost
-REDIS_URL=redis://localhost:6379/0
-```
+See **[LOCAL_SETUP.md](./LOCAL_SETUP.md)** and **[AGENTS.md](./AGENTS.md)** for full local environment details and coding-agent guardrails.
 
-### 2. Run the Full-Stack Application (Port 3000)
+### 1. One-Command Local Setup (Windows, macOS, Linux)
 ```bash
 npm install
-npm run dev
+npm run setup
+```
+This automatically generates `.env` from `.env.example` and runs an environment health check. Add your `GEMINI_API_KEY` inside `.env`:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+PORT=3000
+JWT_SECRET_KEY=kissandost-kp-secret-key
 ```
 
-### 3. Run the Python FastAPI Microservice Stack via Docker Compose
+### 2. Start the Unified Full-Stack Application (Port 3000)
 ```bash
-cd backend
+npm run dev
+# Or use the one-click OS launchers:
+# Windows: start-local.bat
+# macOS / Linux / Git Bash: bash start-local.sh
+```
+Open **`http://localhost:3000`** in your browser. Both the React UI and `/api/v1/*` backend routes run together on Port 3000 (identical to Google AI Studio).
+
+### 3. Run the Full Stack + FastAPI + PostgreSQL (`pgvector`) + Redis via Docker Compose
+```bash
 docker compose up --build
 ```
+- **Full-Stack Web App & API Gateway**: `http://localhost:3000`
 - **FastAPI Swagger UI**: `http://localhost:8000/docs`
 - **FastAPI ReDoc**: `http://localhost:8000/redoc`
 
 ---
 
-## 13. Future Improvements
+## 14. Future Improvements
 
 - **Fine-tuned disease classification model**: Train and quantize a Vision Transformer / MobileNetV3 backbone on field images collected across Khyber Pakhtunkhwa districts.
 - **Multi-crop support**: Expand pathology coverage to sugarcane, potato, tobacco, and stone fruits (peach and plum orchards in Swat).

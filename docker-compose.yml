@@ -1,0 +1,69 @@
+services:
+  # 1. Unified Full-Stack Application (React UI + Express /api/v1/* AI Gateway on Port 3000)
+  # This is the exact full-stack server running in Google AI Studio.
+  kissandost-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kissandost-fullstack-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-kissandost-kp-agri-secret-key-2026}
+    restart: unless-stopped
+
+  # 2. Python FastAPI AI Microservice (Port 8000, Swagger UI at http://localhost:8000/docs)
+  fastapi-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kissandost-fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/kissandost
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-kissandost-kp-agri-secret-key-2026}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  # 3. PostgreSQL 16 + pgvector
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: kissandost-pgvector
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kissandost
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kissandost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 4. Redis 7 Cache & Rate Limiter
+  redis:
+    image: redis:7-alpine
+    container_name: kissandost-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

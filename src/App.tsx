@@ -624,17 +624,17 @@ export default function App() {
                 <div className="space-y-1">
                   <h4 className="text-[20px] font-semibold text-[#17231F]">
                     {language === 'ur'
-                      ? 'دوائی اصلی ہے یا ممنوع؟'
+                      ? 'اسپرے ایڈوائزر (بوتل اسکین)'
                       : language === 'ps'
-                      ? 'درمل اصلي دي که منع شوي؟'
-                      : 'Check Medicine Bottle'}
+                      ? 'د سپرے مشیر (بوتل سکین)'
+                      : 'AI Spray Advisor'}
                   </h4>
                   <p className="text-[13px] font-normal text-[#6B7280]">
                     {language === 'ur'
-                      ? 'دوائی خریدنے سے پہلے یہاں چیک کریں'
+                      ? 'بوتل کی تصویر لیں، اصلی/نقلی اور دو دوائیاں ملانا چیک کریں'
                       : language === 'ps'
-                      ? 'د درملو اخیستلو دمخه دلته وګورئ'
-                      : 'Tap to check if a spray is safe or banned'}
+                      ? 'د بوتل تصویر واخلئ، اصلي/نقلي او د دوه دواییو مکس کول وګورئ'
+                      : 'Scan bottle photo, barcode, or check if 2 medicines can be mixed'}
                   </p>
                 </div>
               </button>

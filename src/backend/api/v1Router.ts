@@ -71,7 +71,7 @@ const voiceQueryHandler = async (req: Request, res: Response, next: NextFunction
 v1Router.post('/v1/voice/query', voiceQueryHandler);
 v1Router.post('/v1/tts', voiceQueryHandler); // Backward-compatible alias
 
-// ==================== 4. MEDICINE SAFETY & COUNTERFEIT CHECK ====================
+// ==================== 4. AI SPRAY ADVISOR & MEDICINE ASSISTANT ====================
 const medicineCheckHandler = (req: Request, res: Response) => {
   const { query, detectedCrop = 'Tomato', detectedDisease = 'Early Blight' } = req.body || {};
   if (!query || typeof query !== 'string' || !query.trim()) {
@@ -95,6 +95,173 @@ const medicineCheckHandler = (req: Request, res: Response) => {
 
 v1Router.post('/v1/medicine/check', medicineCheckHandler);
 v1Router.post('/v1/products/verify', medicineCheckHandler); // Backward-compatible alias
+
+// 4A. Bottle Image Scan -> OCR + Gemini Vision -> Medicine Database -> Weather API -> Decision Engine
+v1Router.post('/v1/medicine/scan-bottle', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      imageBase64 = '',
+      bottleHint = '',
+      barcode = '',
+      crop = 'Tomato',
+      disease = 'Early Blight',
+      growthStage = 'Flowering / Fruiting',
+      district = 'Mardan',
+      previousSpray = 'None',
+    } = req.body || {};
+
+    const weather = await weatherService.getDistrictWeather(district);
+
+    let ocrOverride: any = undefined;
+    if (
+      imageBase64 &&
+      typeof imageBase64 === 'string' &&
+      imageBase64.startsWith('data:image/') &&
+      !imageBase64.startsWith('data:image/svg+xml')
+    ) {
+      const validated = visionAndMlPipeline.validateImagePayload(imageBase64);
+      if (validated.cleanBase64) {
+        const visionResult = await geminiAiService.analyzeMedicineBottleImage({
+          mimeType: validated.mimeType,
+          cleanBase64: validated.cleanBase64,
+        });
+        if (visionResult) {
+          ocrOverride = visionResult;
+        }
+      }
+    }
+
+    const analysis = medicineService.analyzeBottleScan({
+      queryOrBottleId: bottleHint || ocrOverride?.brandName || 'Aliette 80 WG',
+      barcode,
+      ocrOverride,
+      crop,
+      disease,
+      growthStage,
+      previousSpray,
+      weather,
+    });
+
+    res.json({
+      success: true,
+      analysis,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 4B. Instant Barcode Database Lookup (No AI latency needed)
+v1Router.post('/v1/medicine/barcode', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      barcode = '8964001254890',
+      crop = 'Tomato',
+      disease = 'Early Blight',
+      growthStage = 'Flowering / Fruiting',
+      district = 'Mardan',
+      previousSpray = 'None',
+    } = req.body || {};
+
+    const weather = await weatherService.getDistrictWeather(district);
+    const analysis = medicineService.analyzeBottleScan({
+      barcode,
+      crop,
+      disease,
+      growthStage,
+      previousSpray,
+      weather,
+    });
+
+    res.json({
+      success: true,
+      instantBarcodeMatch: true,
+      analysis,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 4C. Medicine A vs Medicine B Comparison
+v1Router.post('/v1/medicine/compare', (req: Request, res: Response) => {
+  const {
+    medicineA = 'Aliette 80 WG',
+    medicineB = 'Karate 2.5 EC',
+    crop = 'Tomato',
+    disease = 'Early Blight',
+  } = req.body || {};
+
+  const comparison = medicineService.compareMedicines({
+    medicineAQuery: medicineA,
+    medicineBQuery: medicineB,
+    crop,
+    disease,
+  });
+
+  res.json({
+    success: true,
+    comparison,
+  });
+});
+
+// 4D. Conservative Tank-Mix Compatibility ("Can I Mix These Two Medicines?")
+v1Router.post('/v1/medicine/mix-check', (req: Request, res: Response) => {
+  const {
+    medicineA = 'Mancozeb 75% WP',
+    medicineB = 'Aliette 80 WG',
+    crop = 'Tomato',
+  } = req.body || {};
+
+  const mixResult = medicineService.checkTankMixCompatibility({
+    medicineAQuery: medicineA,
+    medicineBQuery: medicineB,
+    crop,
+  });
+
+  res.json({
+    success: true,
+    mixResult,
+  });
+});
+
+// 4E. Saved Medicine & Spray History
+v1Router.get('/v1/medicine/history', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    history: medicineService.getHistory(),
+  });
+});
+
+v1Router.post('/v1/medicine/history', (req: Request, res: Response) => {
+  const {
+    medicineName = 'Aliette 80 WG',
+    activeIngredient = 'Fosetyl-Aluminium 80%',
+    crop = 'Tomato',
+    disease = 'Early Blight',
+    district = 'Mardan',
+    resultStatus = 'Suitable & Genuine',
+    dosageUsed = '2g / Liter (30g in 15L tank)',
+    phiDays = 7,
+  } = req.body || {};
+
+  const entry = medicineService.saveHistory({
+    medicineName,
+    activeIngredient,
+    crop,
+    disease,
+    district,
+    resultStatus,
+    dosageUsed,
+    phiDays: Number(phiDays) || 7,
+  });
+
+  res.json({
+    success: true,
+    entry,
+    history: medicineService.getHistory(),
+  });
+});
 
 // ==================== 5. HYPER-LOCAL METEOROLOGICAL WEATHER ====================
 v1Router.get('/v1/weather', async (req: Request, res: Response, next: NextFunction) => {

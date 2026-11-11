@@ -10,22 +10,39 @@ import { ModelPredictionResult } from '../../ml/cropDiseaseModel.ts';
  * Implements Stage 8 (Safe Recommendation Generation) and Stage 9 (Voice Response Generation)
  */
 export class GeminiAiService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
+  private initializedKey = '';
 
-  constructor() {
-    this.ai = new GoogleGenAI({
-      apiKey: settings.geminiApiKey,
-      apiVersion: 'v1beta',
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
+  private getApiKey(): string {
+    const raw = (process.env.GEMINI_API_KEY || settings.geminiApiKey || '').trim();
+    if (!raw || raw === 'your_gemini_api_key_here' || raw === 'YOUR_GEMINI_API_KEY') {
+      return '';
+    }
+    return raw;
   }
 
   isConfigured(): boolean {
-    return Boolean(settings.geminiApiKey);
+    return Boolean(this.getApiKey());
+  }
+
+  private getClient(): GoogleGenAI | null {
+    const key = this.getApiKey();
+    if (!key) {
+      return null;
+    }
+    if (!this.ai || this.initializedKey !== key) {
+      this.ai = new GoogleGenAI({
+        apiKey: key,
+        apiVersion: 'v1beta',
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+      this.initializedKey = key;
+    }
+    return this.ai;
   }
 
   /**
@@ -44,7 +61,8 @@ export class GeminiAiService {
     ragPromptContext: string;
     baselineDecision: DecisionEngineOutput;
   }): Promise<Partial<DecisionEngineOutput> | null> {
-    if (!this.isConfigured() || !params.cleanBase64) {
+    const client = this.getClient();
+    if (!client || !params.cleanBase64) {
       return null;
     }
 
@@ -118,36 +136,52 @@ Return ONLY a JSON object with this exact structure:
   }
 }`;
 
-      const geminiCall = this.ai.models.generateContent({
-        model: settings.geminiVisionModel,
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                mimeType: params.mimeType,
-                data: params.cleanBase64,
+      const visionModels = Array.from(
+        new Set([settings.geminiVisionModel, 'gemini-2.5-flash'])
+      );
+      let textOutput = '';
+
+      for (const modelName of visionModels) {
+        try {
+          const geminiCall = client.models.generateContent({
+            model: modelName,
+            contents: {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: params.mimeType,
+                    data: params.cleanBase64,
+                  },
+                },
+                { text: prompt },
+              ],
+            },
+            config: {
+              responseMimeType: 'application/json',
+              thinkingConfig: {
+                thinkingLevel: ThinkingLevel.LOW,
               },
             },
-            { text: prompt },
-          ],
-        },
-        config: {
-          responseMimeType: 'application/json',
-          thinkingConfig: {
-            thinkingLevel: ThinkingLevel.LOW,
-          },
-        },
-      });
+          });
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`Gemini Vision timeout after ${settings.geminiTimeoutMs}ms`)),
-          settings.geminiTimeoutMs
-        )
-      );
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`Gemini Vision timeout after ${settings.geminiTimeoutMs}ms`)),
+              settings.geminiTimeoutMs
+            )
+          );
 
-      const response = await Promise.race([geminiCall, timeoutPromise]);
-      const textOutput = response.text?.trim() || '';
+          const response = await Promise.race([geminiCall, timeoutPromise]);
+          textOutput = response.text?.trim() || '';
+          if (textOutput) break;
+        } catch (innerErr: any) {
+          logger.warn('VISION_MODEL_ATTEMPT_FALLBACK', {
+            model: modelName,
+            error: innerErr?.message || String(innerErr),
+          });
+        }
+      }
+
       if (!textOutput) return null;
       const parsed = JSON.parse(textOutput) as Partial<DecisionEngineOutput>;
 
@@ -170,6 +204,120 @@ Return ONLY a JSON object with this exact structure:
       return parsed;
     } catch (err: any) {
       logger.warn('GEMINI_VISION_FALLBACK_TO_DECISION_ENGINE', {
+        reason: err?.message || String(err),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * OCR + Vision AI for Pesticide Bottle Label Extraction & Counterfeit Inspection
+   * Extracts Brand Name, Active Ingredient, Company, Registration Number, Mfg/Expiry Dates,
+   * Batch Number, QR/Barcode presence, and checks for blurry print / fake label indicators.
+   */
+  async analyzeMedicineBottleImage(params: {
+    mimeType: string;
+    cleanBase64: string;
+  }): Promise<{
+    brandName?: string;
+    activeIngredient?: string;
+    company?: string;
+    registrationNumber?: string;
+    manufacturingDate?: string;
+    expiryDate?: string;
+    batchNumber?: string;
+    barcode?: string;
+    qrDetected?: boolean;
+    isGenuineOverride?: boolean;
+    counterfeitSignalsOverride?: string[];
+    imageQualityPoor?: boolean;
+  } | null> {
+    const client = this.getClient();
+    if (!client || !params.cleanBase64) {
+      return null;
+    }
+
+    try {
+      const prompt = `You are an expert agrochemical OCR and counterfeit detection inspector for Khyber Pakhtunkhwa (KP) Agriculture Extension in Pakistan.
+Inspect this pesticide/fungicide bottle or packet image and extract all visible label text and authenticity cues.
+
+Look for:
+1. Brand Name (e.g., "Aliette 80 WG", "Dithane M-45", "Ridomil Gold MZ 68 WG", "Tilt 250 EC", "Score 250 EC", "Karate 2.5 EC", "Paraquat")
+2. Active Ingredient (e.g., "Fosetyl-Aluminium 80%", "Mancozeb 75% WP", "Propiconazole 25% EC")
+3. Company (e.g., "Bayer", "Syngenta", "Corteva", "Swat Agro")
+4. Registration Number (e.g., "PAK-DPP-10482-F")
+5. Manufacturing Date (YYYY-MM) and Expiry Date (YYYY-MM)
+6. Batch Number
+7. Barcode digits or QR Code presence
+8. Counterfeit / Fake Signals: check for blurry printing, misspelled chemical names, missing registration number, or tampered seal.
+9. Image Quality: set "imageQualityPoor": true ONLY if the image is completely unreadable/blurry.
+
+Return ONLY a JSON object with this structure:
+{
+  "brandName": "Extracted brand name",
+  "activeIngredient": "Extracted active ingredient",
+  "company": "Manufacturer name",
+  "registrationNumber": "Registration number or MISSING",
+  "manufacturingDate": "2026-01",
+  "expiryDate": "2027-01",
+  "batchNumber": "Batch code",
+  "barcode": "8964001254890",
+  "qrDetected": true,
+  "isGenuineOverride": true,
+  "counterfeitSignalsOverride": ["Clear manufacturer logo and registration code"],
+  "imageQualityPoor": false
+}`;
+
+      const visionModels = Array.from(
+        new Set([settings.geminiVisionModel, 'gemini-2.5-flash'])
+      );
+      let textOutput = '';
+
+      for (const modelName of visionModels) {
+        try {
+          const geminiCall = client.models.generateContent({
+            model: modelName,
+            contents: {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: params.mimeType,
+                    data: params.cleanBase64,
+                  },
+                },
+                { text: prompt },
+              ],
+            },
+            config: {
+              responseMimeType: 'application/json',
+              thinkingConfig: {
+                thinkingLevel: ThinkingLevel.LOW,
+              },
+            },
+          });
+
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`Gemini Bottle OCR timeout after ${settings.geminiTimeoutMs}ms`)),
+              settings.geminiTimeoutMs
+            )
+          );
+
+          const response = await Promise.race([geminiCall, timeoutPromise]);
+          textOutput = response.text?.trim() || '';
+          if (textOutput) break;
+        } catch (innerErr: any) {
+          logger.warn('BOTTLE_OCR_MODEL_FALLBACK', {
+            model: modelName,
+            error: innerErr?.message || String(innerErr),
+          });
+        }
+      }
+
+      if (!textOutput) return null;
+      return JSON.parse(textOutput);
+    } catch (err: any) {
+      logger.warn('GEMINI_BOTTLE_OCR_FALLBACK_TO_CATALOG', {
         reason: err?.message || String(err),
       });
       return null;
@@ -216,6 +364,7 @@ Return ONLY a JSON object with this exact structure:
   /**
    * Stage 9: Voice Response Generation (Urdu / Pashto / English)
    * Uses gemini-3.8-flash-tts and gemini-3.8-flash-lite-tts with speechMetadata style direction
+   * (plus automatic fallback to gemini-2.5-flash-preview-tts on external local networks)
    * for authentic, human-sounding Pakistani Urdu and everyday Mardan Yusufzai Pashto voices.
    */
   async synthesizeSpeech(params: {
@@ -225,7 +374,8 @@ Return ONLY a JSON object with this exact structure:
   }): Promise<{ audioBase64: string; mimeType: string; cached: boolean }> {
     const { text, lang = 'ur', voicePersona = 'elder' } = params;
 
-    if (!this.isConfigured()) {
+    const client = this.getClient();
+    if (!client) {
       throw Object.assign(new Error('GEMINI_API_KEY is not configured on the server.'), {
         statusCode: 503,
         code: 'TTS_UNAVAILABLE',
@@ -256,60 +406,53 @@ Return ONLY a JSON object with this exact structure:
     }
 
     let base64Audio: string | undefined;
+    const ttsModels = Array.from(
+      new Set([
+        settings.geminiTtsPrimaryModel,
+        settings.geminiTtsFallbackModel,
+        'gemini-2.5-flash-preview-tts',
+      ])
+    );
 
-    try {
-      const response = await this.ai.models.generateContent({
-        model: settings.geminiTtsPrimaryModel,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text,
-                speechMetadata: {
-                  style: styleInstruction,
-                },
-              } as any,
-            ],
-          },
-        ],
-        config: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName },
+    for (const ttsModel of ttsModels) {
+      try {
+        const useSpeechMetadata = ttsModel.includes('3.8');
+        const response = await client.models.generateContent({
+          model: ttsModel,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                useSpeechMetadata
+                  ? ({
+                      text,
+                      speechMetadata: {
+                        style: styleInstruction,
+                      },
+                    } as any)
+                  : {
+                      text: `${styleInstruction}\n\nSpeak the following text clearly:\n${text}`,
+                    },
+              ],
+            },
+          ],
+          config: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName },
+              },
             },
           },
-        },
-      });
-      base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    } catch (primaryErr: any) {
-      logger.warn('PRIMARY_TTS_FALLBACK', { error: primaryErr?.message });
-      const fallbackResponse = await this.ai.models.generateContent({
-        model: settings.geminiTtsFallbackModel,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text,
-                speechMetadata: {
-                  style: styleInstruction,
-                },
-              } as any,
-            ],
-          },
-        ],
-        config: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName },
-            },
-          },
-        },
-      });
-      base64Audio = fallbackResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        });
+        base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (base64Audio) break;
+      } catch (ttsErr: any) {
+        logger.warn('TTS_MODEL_ATTEMPT_FALLBACK', {
+          model: ttsModel,
+          error: ttsErr?.message || String(ttsErr),
+        });
+      }
     }
 
     if (!base64Audio) {

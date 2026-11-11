@@ -58,6 +58,23 @@ async def check_medicine(payload: MedicineCheckRequest):
     return {"success": True, "product": product}
 
 
+@router.post("/medicine/barcode", tags=["Agrochemical Verification"])
+async def check_medicine_barcode(barcode: str = Query(..., description="EAN-13 pesticide bottle barcode")):
+    """Instant barcode identification without AI latency when label image quality is poor."""
+    return medicine_service.lookup_barcode(barcode)
+
+
+@router.post("/medicine/mix-check", tags=["Agrochemical Verification"])
+async def check_tank_mix(
+    medicine_a: str = Query(..., description="First pesticide/fungicide name"),
+    medicine_b: str = Query(..., description="Second pesticide/fungicide name"),
+):
+    """Conservative Tank-Mix Compatibility Advisor ('Can I Mix These Two Medicines?')."""
+    result = medicine_service.check_tank_mix(medicine_a, medicine_b)
+    return {"success": True, "mixResult": result}
+
+
+
 @router.get("/weather", tags=["Meteorological Intelligence"])
 async def get_weather(district: str = Query(default="Mardan")):
     """Retrieves real-time KP district weather and fungicide spray suitability."""
