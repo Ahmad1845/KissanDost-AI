@@ -87,6 +87,7 @@ export class GeminiAiService {
     cleanBase64: string;
     cropHint: string;
   }): Promise<{
+    isPlantLeaf: boolean;
     isHealthy: boolean;
     diseaseCategory:
       | 'healthy'
@@ -94,7 +95,8 @@ export class GeminiAiService {
       | 'leaf_curl'
       | 'early_blight'
       | 'late_blight'
-      | 'yellow_rust';
+      | 'yellow_rust'
+      | 'not_a_leaf';
     estimatedGreenPct: number;
     estimatedYellowPct: number;
     estimatedBrownNecroticPct: number;
@@ -115,15 +117,18 @@ export class GeminiAiService {
       ])
     ).filter((m) => !this.isModelCoolingDown(m));
 
-    const prompt = `You are an expert plant pathologist. Inspect this ${params.cropHint} leaf photo carefully (ignore human fingers/hands holding the petiole and ignore background field/soil).
-Look closely at the leaf blade and veins:
-- If there are dark brown/black necrotic vein streaks (vein blight), brown angular spots, necrotic lesions, target rings, fungal rust powder, or yellowing/curling, set "isHealthy": false and estimate the diseased percentages ("estimatedBrownNecroticPct" >= 15 for vein blight or brown spots).
-- Only set "isHealthy": true if the leaf blade and veins are completely clean, fresh green, and free of brown/black necrotic streaks or spots ("estimatedBrownNecroticPct" <= 2).
+    const prompt = `You are an expert plant pathologist. First, verify whether this image actually contains a real plant or crop leaf.
+CRITICAL NON-LEAF CHECK:
+- If the photo shows ONLY a human hand, fingers, face, indoor room, wall, furniture, floor, paper, or bottle with NO plant/crop leaf clearly visible, you MUST set "isPlantLeaf": false and "diseaseCategory": "not_a_leaf".
+- If a farmer is holding a real plant leaf in the photo, set "isPlantLeaf": true, ignore their fingers/hand holding the petiole, and inspect ONLY the leaf blade and veins:
+  * If there are dark brown/black necrotic vein streaks (vein blight), brown angular spots, necrotic lesions, target rings, fungal rust powder, or yellowing/curling, set "isHealthy": false and estimate the diseased percentages ("estimatedBrownNecroticPct" >= 15 for vein blight or brown spots).
+  * Only set "isHealthy": true if the leaf blade and veins are completely clean, fresh green, and free of brown/black necrotic streaks or spots ("estimatedBrownNecroticPct" <= 2).
 
 Return ONLY a JSON object:
 {
+  "isPlantLeaf": boolean,
   "isHealthy": boolean,
-  "diseaseCategory": "healthy" | "bacterial_blight_or_spot" | "leaf_curl" | "early_blight" | "late_blight" | "yellow_rust",
+  "diseaseCategory": "healthy" | "bacterial_blight_or_spot" | "leaf_curl" | "early_blight" | "late_blight" | "yellow_rust" | "not_a_leaf",
   "estimatedGreenPct": number,
   "estimatedYellowPct": number,
   "estimatedBrownNecroticPct": number,

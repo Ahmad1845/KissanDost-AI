@@ -75,6 +75,17 @@ export class CropDiagnosisPipeline {
       });
 
       if (fastInspection) {
+        if (fastInspection.isPlantLeaf === false || fastInspection.diseaseCategory === 'not_a_leaf') {
+          throw Object.assign(
+            new Error(
+              'No plant leaf detected in this photo. Please take a clear photo of a crop leaf.'
+            ),
+            {
+              statusCode: 400,
+              code: 'NOT_A_PLANT_LEAF',
+            }
+          );
+        }
         if (!fastInspection.isHealthy || fastInspection.severity !== 'Healthy') {
           const isCurl = fastInspection.diseaseCategory === 'leaf_curl';
           const brown = Math.max(

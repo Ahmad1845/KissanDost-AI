@@ -398,11 +398,19 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
       const resolutionValid = origWidth >= 140 && origHeight >= 140;
       const leafVisibilityPct =
         totalSampledPixels > 0
-          ? Math.min(100, Math.max(20, Math.round((leafPixelCount / totalSampledPixels) * 155)))
+          ? Math.min(100, Math.round((leafPixelCount / totalSampledPixels) * 155))
           : 80;
 
       const rejectionReasons: string[] = [];
-      if (blurScore < 28) {
+      if (leafVisibilityPct < 3) {
+        rejectionReasons.push(
+          language === 'ur'
+            ? 'اس تصویر میں پودے کا پتہ نظر نہیں آ رہا — براہِ کرم صرف فصل کے پتے کی صاف تصویر لیں۔'
+            : language === 'ps'
+            ? 'په دې انځور کې د بوټي پاڼه نه ښکاري — مهرباني وکړئ یوازې د فصل د پاڼې صفا انځور واخلئ.'
+            : 'No plant leaf detected in this photo — please take a clear photo of a crop leaf.'
+        );
+      } else if (blurScore < 28) {
         rejectionReasons.push(
           language === 'ur'
             ? 'تصویر دھندلی ہے — براہِ کرم کیمرہ مستحکم رکھیں اور پتے کی صاف تصویر لیں۔'
@@ -790,6 +798,15 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
           onClose();
         }, 250);
       } else {
+        if (data.code === 'NOT_A_PLANT_LEAF') {
+          throw new Error(
+            language === 'ur'
+              ? 'اس تصویر میں پودے کا پتہ نظر نہیں آ رہا — براہِ کرم صرف فصل کے پتے کی صاف تصویر لیں۔'
+              : language === 'ps'
+              ? 'په دې انځور کې د بوټي پاڼه نه ښکاري — مهرباني وکړئ یوازې د فصل د پاڼې صفا انځور واخلئ.'
+              : 'No plant leaf detected in this photo. Please take a clear photo of a crop leaf.'
+          );
+        }
         throw new Error(data.message || 'Unable to complete leaf diagnosis.');
       }
     } catch (err: any) {
