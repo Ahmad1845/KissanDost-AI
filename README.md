@@ -221,7 +221,7 @@ cd backend && pytest -v
 
 ## 9. Deploy to Vercel (GitHub Import or CLI)
 
-This repository includes `vercel.json`, `src/backend/vercelApp.ts` + `scripts/build-vercel-api.mjs` (which bundles `api/index.mjs` as a zero-TS-error Vercel serverless Express adapter for `/api/v1/*`), `.vercelignore`, and client-side camera photo compression (to stay safely below Vercel's 4.5 MB request payload limit) while preserving `server.ts` on Port 3000 for local development.
+This repository includes `vercel.json`, `api/index.js` + `src/backend/vercelApp.ts` + `scripts/build-vercel-api.mjs` (which bundles `dist-api/index.js` during `npm run build` as a zero-TS-error Vercel serverless Express adapter for `/api/v1/*`), `.vercelignore`, and client-side camera photo compression (to stay safely below Vercel's 4.5 MB request payload limit) while preserving `server.ts` on Port 3000 for local development.
 
 1. Push the repository to **GitHub**.
 2. In **Vercel**, click **Add New Project** → import your GitHub repository (Framework Preset: **Vite**, Build Command: `npm run build`, Output Directory: `dist`).

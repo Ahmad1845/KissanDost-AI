@@ -8,7 +8,7 @@ const rootDir = path.resolve(__dirname, '..');
 
 await build({
   entryPoints: [path.join(rootDir, 'src/backend/vercelApp.ts')],
-  outfile: path.join(rootDir, 'api/index.mjs'),
+  outfile: path.join(rootDir, 'dist-api/index.js'),
   bundle: true,
   platform: 'node',
   target: 'node20',
