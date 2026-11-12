@@ -22,7 +22,7 @@ interface VoiceGuideModalProps {
   onClose: () => void;
   language: Language;
   onLanguageChange: (lang: Language) => void;
-  recommendation: RecommendationResult;
+  recommendation: RecommendationResult | null;
 }
 
 export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
@@ -53,6 +53,25 @@ export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
 
   // Build concise 1-line summary for low-literacy farmers
   const getTopicSummary = (topic: 'full' | 'weather' | 'medicine' | 'desi', lang: Language): string => {
+    if (!recommendation) {
+      if (lang === 'ps') {
+        if (topic === 'weather') return 'سهار د ۷ نه تر ۱۰ بجو پورې چې هوا ارامه وي سپرے وکړئ';
+        if (topic === 'medicine') return 'له سپرے مخکې د پاڼې سکین وکړئ او بیا دوایي وګورئ';
+        if (topic === 'desi') return 'خرابې لاندې پاڼې وشکوئ او د نیم یا بکانړې اوبه سپرے کړئ';
+        return 'د فصل د پاڼې تصویر واخلئ ترڅو سم علاج او مشوره واورئ';
+      }
+      if (lang === 'ur') {
+        if (topic === 'weather') return 'صبح ۷ سے ۱۰ بجے کے درمیان جب ہوا ہلکی ہو اسپرے کریں';
+        if (topic === 'medicine') return 'پتے کا اسکین کرنے کے بعد دوائی چیک سے اصلی دوائی کی تصدیق کریں';
+        if (topic === 'desi') return 'خراب نچلے پتے توڑ کر زمین میں دبا دیں اور نیم کا پانی چھڑکیں';
+        return 'اپنی فصل کے پتے کی تصویر لیں تاکہ بیماری اور علاج سن سکیں';
+      }
+      if (topic === 'weather') return 'Best general spray window: Morning 7:00 AM - 10:00 AM in calm wind';
+      if (topic === 'medicine') return 'Scan a leaf first, then verify your medicine bottle before spraying';
+      if (topic === 'desi') return 'Home Remedy: Remove lower spotted leaves & spray Neem water';
+      return 'Scan a crop leaf to receive tailored diagnosis and voice guidance';
+    }
+
     const ur = recommendation.translations?.ur;
     const ps = recommendation.translations?.ps;
     const med = recommendation.approvedTreatments[0];
@@ -79,6 +98,45 @@ export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
 
   // Build authentic, natural conversational script in Urdu, everyday Mardan Pashto, or English
   const getSpokenScript = (topic: 'full' | 'weather' | 'medicine' | 'desi', lang: Language): string => {
+    if (!recommendation) {
+      if (lang === 'ps') {
+        if (topic === 'weather') {
+          return 'السلام علیکم زما خوږه زمینداره وروره! د سپرے کولو تر ټولو ښه وخت سهار وختي د اوو نه تر لسو بجو پورې وي، کله چې باد کم وي او باران نه وي. که د باران امکان وي نو مهرباني وکړئ سپرے وځنډوئ ترڅو ستاسو دوایي او پیسې ضایع نشي. الله پاک دې ستاسو په فصل کې برکت واچوي!';
+        }
+        if (topic === 'medicine') {
+          return 'السلام علیکم زما خوږه زمینداره وروره! د دوایۍ له رانیولو مخکې د دوائی چیک برخه کې د بوتل تصویر واخلئ ترڅو پوه شئ چې دوایي اصلي ده او که نه او ستاسو د فصل لپاره سمه ده. لومړی د پاڼې تصویر سکین کړئ نو زه به تاسو ته پوره اندازه او طریقه دروښیم.';
+        }
+        if (topic === 'desi') {
+          return 'السلام علیکم زما خوږه زمینداره وروره! که تاسو غواړئ بې له پیسو دیسي او کلیواله طریقه وکړئ، نو ډېره اسانه ده. لومړی د بوټي لاندې خرابې او داغدارې پاڼې په ارامه وشکوئ او له پټي بهر یې په خاوره کې ښخې کړئ ترڅو نورو بوټو ته ونه رسیږي. بیا د بکانړې یا نیم د ونې د پاڼو اوبه جوش او یخې کړئ او سهار وختي یې پر بوټو سپرے کړئ. الله پاک دې ستاسو فصل روغ وساتي!';
+        }
+        return 'السلام علیکم زما خوږه زمینداره وروره! زه ستاسو کسان دوست یم. مهرباني وکړئ د پاڼې تصویر واخلئ بټن کېکاږئ او د خپلې فصل د پاڼې صفا تصویر راولیږئ، نو زه به تاسو ته سمدلاسه د ناروغۍ نوم، سمه دوایي او د سپرے وخت په خپله پښتو ژبه دروښیم. الله پاک دې ستاسو په محنت او فصل کې ډېر برکت واچوي!';
+      }
+
+      if (lang === 'ur') {
+        if (topic === 'weather') {
+          return 'السلام علیکم میرے پیارے کسان بھائی! اسپرے کا سب سے بہترین وقت صبح سات سے دس بجے کے درمیان ہوتا ہے جب ہوا ہلکی ہو اور بارش کا امکان نہ ہو۔ اگر بارش کا خطرہ ہو تو اسپرے روک دیں تاکہ آپ کی دوائی اور محنت ضائع نہ ہو۔ اللہ آپ کی فصل میں خوب برکت ڈالے!';
+        }
+        if (topic === 'medicine') {
+          return 'السلام علیکم میرے پیارے کسان بھائی! کوئی بھی دوائی اسپرے کرنے سے پہلے دوائی چیک والے حصے میں جا کر بوتل کی تصویر لیں تاکہ تصدیق ہو سکے کہ دوائی اصلی ہے اور آپ کی فصل کے لیے موزوں ہے۔ پہلے اپنی فصل کے پتے کی تصویر اسکین کریں، پھر میں آپ کو بالکل صحیح مقدار اور طریقہ بتاؤں گا۔';
+        }
+        if (topic === 'desi') {
+          return 'السلام علیکم میرے پیارے کسان بھائی! اگر آپ بغیر پیسوں کے آسان دیسی علاج کرنا چاہتے ہیں تو فکر نہ کریں۔ سب سے پہلے پودے کے نچلے خراب اور دھبے والے پتوں کو ہاتھ سے احتیاط سے توڑ کر کھیت سے باہر زمین میں دبا دیں تاکہ بیماری آگے نہ پھیلے۔ اس کے بعد نیم یا بکائن کے پتوں کا پانی ابال کر ٹھنڈا کر لیں اور صبح سویرے پودوں پر اسپرے کریں۔ اللہ آپ کی محنت قبول فرمائے!';
+        }
+        return 'السلام علیکم میرے پیارے کسان بھائی! میں آپ کا کسان دوست بول رہا ہوں۔ براہ کرم پتے کی تصویر کھینچیں والے بٹن پر کلک کر کے اپنی فصل کے پتے کی صاف تصویر اپلوڈ کریں، تاکہ میں آپ کو بیماری کی پہچان، صحیح دوائی اور اسپرے کا بہترین وقت آسان اردو میں بتا سکوں۔ اللہ آپ کی محنت میں برکت ڈالے!';
+      }
+
+      if (topic === 'weather') {
+        return 'Assalamu Alaikum, dear farmer brother! The best window to spray is early morning between 7 AM and 10 AM when winds are calm and no rain is expected. Holding off before rain protects your medicine and saves money.';
+      }
+      if (topic === 'medicine') {
+        return 'Assalamu Alaikum, dear farmer brother! Before spraying any medicine, scan your crop leaf first and then use Check Medicine to verify the bottle authenticity and exact dosage for your crop.';
+      }
+      if (topic === 'desi') {
+        return 'Assalamu Alaikum, dear farmer brother! For a natural home remedy, gently pluck badly spotted bottom leaves and bury them outside your field, then spray a cool 5 percent Neem leaf extract early in the morning.';
+      }
+      return 'Assalamu Alaikum, dear farmer brother! I am your Kissan Dost. Tap Scan Plant Leaf and take a clear photo of your crop leaf so I can diagnose any issue and guide you with the safest treatment and spray window.';
+    }
+
     const ur = recommendation.translations?.ur;
     const ps = recommendation.translations?.ps;
     const med = recommendation.approvedTreatments[0];

@@ -7,15 +7,14 @@ import {
   FlaskConical,
   AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   CloudSun,
   Volume2,
   Loader2,
-  Square,
   Bell,
   X,
   ChevronDown,
-  ShieldCheck,
+  Clock,
+  Trash2,
 } from 'lucide-react';
 import { Language, Farm, TimelineEvent, RecommendationResult, WeatherSnapshot } from './types';
 import { TRANSLATIONS } from './data/translations';
@@ -61,97 +60,31 @@ const DEFAULT_FARMS: Farm[] = [
   },
 ];
 
-const INITIAL_RECOMMENDATION: RecommendationResult = {
-  scanId: 'scan-init-01',
-  crop: 'Tomato',
-  disease: 'Leaf Spot Blight (Early Blight)',
-  pathogen: 'Alternaria solani',
-  severity: 'Moderate',
-  confidence: 96,
-  action: 'Spray Mancozeb 75% WP (2.5g per litre of water) in the morning between 7:00 AM and 10:00 AM when wind is calm.',
-  bestTime: 'Morning 7:00 AM - 10:00 AM (Weather Favorable)',
-  why: [
-    'Weather in Mardan is partly cloudy and calm (17°C, wind 5 km/h), suitable for morning spray.',
-    'Morning hours allow the medicine to stick well to the leaves without washing off.',
-    'Yellow and brown rings on the lower tomato leaves show early blight fungus.',
-  ],
-  detailedExplanation:
-    'Your tomato plants have brown spots on the lower leaves. Weather in Mardan is calm and favorable, so spray Mancozeb between 7 AM and 10 AM when the leaves are dry.',
-  weatherSnapshot: {
-    district: 'Mardan',
-    temperature: 17,
-    humidity: 90,
-    windSpeed: 5,
-    precipitation: 0,
-    rainProbability: 26,
-    condition: 'Partly cloudy',
-    spraySuitability: 'Favorable',
-    weatherAdvice: 'Partly cloudy (17°C, humidity 90%, wind 5 km/h). Favorable window to spray.',
-  },
-  approvedTreatments: [
-    {
-      name: 'Mancozeb 75% WP (Dithane M-45)',
-      dosage: '2.5 grams in 1 litre water (half spoon per litre)',
-      withholding: 'Wait 7 days before picking tomatoes',
-      ppe: 'Cover mouth and nose with a cloth and wear gloves while spraying',
-    },
-    {
-      name: 'Chlorothalonil 75% WP',
-      dosage: '2 grams in 1 litre water',
-      withholding: 'Wait 5 days before picking tomatoes',
-      ppe: 'Cover mouth and eyes while spraying',
-    },
-  ],
-  organicAlternatives: [
-    'Mix Neem oil or Neem seed water (5%) and spray on leaves',
-    'Pluck the badly spotted bottom leaves and bury them outside the field',
-  ],
-  nextReviewDays: 3,
-  consultOfficer: false,
-  groundedSources: [
-    { title: 'Tomato Leaf Spot Farmer Guide - Mardan & Peshawar', source: 'KP Agriculture Dept' },
-    { title: 'Safe Crop Spray Guide', source: 'PARC' },
-  ],
-  scanTimestamp: new Date().toISOString(),
-  imageUrl: '',
+const RECENT_SCANS_STORAGE_KEY = 'kissandost_recent_scans';
+
+const DEFAULT_WEATHER: WeatherSnapshot = {
   district: 'Mardan',
-  translations: {
-    ur: {
-      cropName: 'ٹماٹر (Tomato)',
-      disease: 'ٹماٹر کے پتوں کا جھلساؤ (Early Blight)',
-      action: 'صبح 7 سے 10 بجے کے درمیان جب موسم صاف اور ہوا ہلکی ہو تو مینکوزیب (ڈائیتھین M-45) دوائی کا اسپرے کریں۔',
-      bestTime: 'صبح 7:00 سے 10:00 بجے تک (موسم موزوں ہے)',
-      whySummary: 'مردان میں موسم جزوی ابر آلود اور ہوا ہلکی ہے، اس لیے صبح کے وقت اسپرے پورا اثر کرے گا۔',
-      whyPoints: [
-        'نچلے پتوں پر گول بھورے دھبے اور پیلاہٹ نظر آ رہی ہے',
-        'صبح 7 سے 10 بجے ہوا ہلکی ہوگی اور دوائی پتوں پر اچھی طرح جم جائے گی',
-        'نچلے پیلے اور داغدار پتوں کو توڑ کر کھیت سے باہر زمین میں دبا دیں',
-      ],
-      medicineName: 'مینکوزیب (Mancozeb 75% WP / ڈائیتھین M-45)',
-      dosageText: 'ایک لیٹر پانی میں ڈھائی گرام (آدھا چمچ) دوائی ملائیں — ایک ایکڑ کے لیے 600 سے 800 گرام',
-      safetyText: 'اسپرے کرتے وقت منہ اور ناک پر کپڑا باندھیں اور ہاتھوں پر دستانے پہنیں۔ اسپرے کے بعد 7 دن تک ٹماٹر نہ توڑیں۔',
-      voiceScript:
-        'السلام علیکم میرے پیارے کسان بھائی! خوش آمدید، میں آپ کا کسان دوست بول رہا ہوں۔ آپ کے ٹماٹر کے پودوں پر پتوں کے جھلساؤ یعنی ارلی بلائیٹ کے ہلکے آثار نظر آ رہے ہیں، لیکن گھبرانے کی بالکل بات نہیں ہے۔ اس وقت مردان میں موسم اسپرے کے لیے بہت اچھا اور پرسکون ہے، اس لیے صبح سات بجے سے دس بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔ ایک لیٹر پانی میں آدھا چمچ یعنی ڈھائی گرام دوائی ملائیں، اور اسپرے سے پہلے نچلے داغدار پتے توڑ کر دبا دیں۔ اسپرے کرتے وقت منہ پر صاف کپڑا ضرور باندھیں اور سات دن تک ٹماٹر نہ توڑیں۔ اللہ آپ کی محنت میں خوب برکت ڈالے!',
-    },
-    ps: {
-      cropName: 'ټماټر (Tomato)',
-      disease: 'د ټماټرو د پاڼو سوځېدل (Early Blight)',
-      action: 'سهار د ۷ بجو نه تر ۱۰ بجو پورې چې هوا ارامه وي د مینکوزیب (ډایتین M-45) دوایۍ سپرے وکړئ.',
-      bestTime: 'سهار د ۷:۰۰ نه تر ۱۰:۰۰ بجو پورې (موسم ښه دی)',
-      whySummary: 'په مردان کې هوا ارامه ده، نو سهار مهال سپرے به په پاڼو پوره اثر وکړي.',
-      whyPoints: [
-        'په لاندې پاڼو باندې نصواري داغونه او ژیړوالی ښکاري',
-        'سهار د ۷ نه تر ۱۰ بجو پورې باد کم وي، دوایي به په پاڼو ښه اثر وکړي',
-        'لاندې ژیړې او خرابې پاڼې وشکوئ او له پټي بهر یې په خاوره کې ښخې کړئ',
-      ],
-      medicineName: 'مینکوزیب دوایي (Mancozeb 75% WP / ډایتین M-45)',
-      dosageText: 'په یو لیټر اوبو کې دوه نیم ګرامه (نیمه چمچه) دوایي مکس کړئ — د یو ایکړ لپاره له ۶۰۰ نه تر ۸۰۰ ګرامه',
-      safetyText: 'د سپرے کولو په وخت خوله او پوزه په صافه کپړه وتړئ. له سپرے وروسته تر ۷ ورځو پورې ټماټر مه شکوئ.',
-      voiceScript:
-        'السلام علیکم زما خوږه زمینداره وروره! ستاسو کسان دوست له تاسو سره خبرې کوي، هیله ده روغ جوړ به یئ. ستاسو د ټماټرو په بوټو باندې د پاڼو د سوځېدو یعنې ارلي بلایټ بیماري ښکاري، خو هیڅ مه پرېشانه کېږئ، وختي علاج یې ډېر اسانه دی. اوس په مردان کې موسم د سپرے لپاره ډېر ښه دی، نو سهار د اوو بجو نه تر لسو بجو پورې د مینکوزیب دوایۍ سپرے وکړئ. په یو لیټر اوبو کې نیمه چمچه یعنې دوه نیم ګرامه دوایي مکس کړئ او لاندې خرابې پاڼې له پټي پاکې کړئ. د سپرے پر مهال خوله په کپړه وتړئ او تر اوو ورځو پورې ټماټر مه شکوئ. الله پاک دې ستاسو په فصل او روزي کې ډېر برکت واچوي!',
-    },
-  },
+  temperature: 17,
+  humidity: 72,
+  windSpeed: 5,
+  precipitation: 0,
+  rainProbability: 15,
+  condition: 'Partly cloudy',
+  spraySuitability: 'Favorable',
+  weatherAdvice: 'Partly cloudy (17°C, humidity 72%, wind 5 km/h). Favorable window to spray.',
 };
+
+function loadStoredScans(): RecommendationResult[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_SCANS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 const INITIAL_TIMELINE: TimelineEvent[] = [
   {
@@ -206,26 +139,43 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'scan' | 'decision' | 'farms' | 'verify' | 'community'>('home');
   const [farms, setFarms] = useState<Farm[]>(DEFAULT_FARMS);
   const [activeFarmId, setActiveFarmId] = useState<string>('farm-01');
-  const [currentRecommendation, setCurrentRecommendation] = useState<RecommendationResult>(INITIAL_RECOMMENDATION);
-  const [scanHistory, setScanHistory] = useState<RecommendationResult[]>([INITIAL_RECOMMENDATION]);
+  const [currentRecommendation, setCurrentRecommendation] = useState<RecommendationResult | null>(null);
+  const [scanHistory, setScanHistory] = useState<RecommendationResult[]>(() => loadStoredScans());
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(INITIAL_TIMELINE);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
   const [alertsModalOpen, setAlertsModalOpen] = useState<boolean>(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [isHeroVoiceExpanded, setIsHeroVoiceExpanded] = useState<boolean>(false);
+  const [verifyResetKey, setVerifyResetKey] = useState<number>(0);
 
   const [homePlayingLang, setHomePlayingLang] = useState<Language | null>(null);
   const [homeLoadingLang, setHomeLoadingLang] = useState<Language | null>(null);
 
   const [verifierCrop, setVerifierCrop] = useState<string>('Tomato');
   const [verifierDisease, setVerifierDisease] = useState<string>('Early Blight');
-  const [liveWeather, setLiveWeather] = useState<WeatherSnapshot>(INITIAL_RECOMMENDATION.weatherSnapshot);
+  const [liveWeather, setLiveWeather] = useState<WeatherSnapshot>(DEFAULT_WEATHER);
 
   const t = TRANSLATIONS[language];
   const isRtl = language === 'ur' || language === 'ps';
 
   const activeFarm = farms.find((f) => f.id === activeFarmId) || farms[0];
+
+  // Persist real user scans in localStorage (skip on reload so no fake default disease ever sticks)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const trimmed = scanHistory.slice(0, 10);
+    try {
+      window.localStorage.setItem(RECENT_SCANS_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch {
+      try {
+        const lightweight = trimmed.map((item) => ({ ...item, imageUrl: '' }));
+        window.localStorage.setItem(RECENT_SCANS_STORAGE_KEY, JSON.stringify(lightweight));
+      } catch {
+        // Ignore storage quota errors cleanly
+      }
+    }
+  }, [scanHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,11 +184,6 @@ export default function App() {
       .then((data) => {
         if (!cancelled && data?.weather) {
           setLiveWeather(data.weather);
-          setCurrentRecommendation((prev) =>
-            prev.scanId === 'scan-init-01'
-              ? { ...prev, district: activeFarm.district, weatherSnapshot: data.weather }
-              : prev
-          );
         }
       })
       .catch(() => {});
@@ -257,15 +202,33 @@ export default function App() {
 
     setLanguage(targetLang);
 
-    const ur = currentRecommendation.translations?.ur;
-    const ps = currentRecommendation.translations?.ps;
-
-    const script =
-      targetLang === 'ur'
-        ? ur?.voiceScript || `${ur?.disease || currentRecommendation.disease}۔ ${ur?.action || currentRecommendation.action}`
-        : targetLang === 'ps'
-        ? ps?.voiceScript || `${ps?.disease || currentRecommendation.disease}۔ ${ps?.action || currentRecommendation.action}`
-        : `Assalamu Alaikum, dear farmer brother! Welcome back—I am speaking as your Kissan Dost. Your ${currentRecommendation.crop} crop is showing signs of ${currentRecommendation.disease}, so there is no need to worry at all when we treat it in time. ${currentRecommendation.action} Take your time spraying calmly in the morning, cover your nose and mouth with a clean cloth, and check the leaves again in a few days. May your hard work bring a rich, healthy harvest!`;
+    let script = '';
+    if (currentRecommendation) {
+      const ur = currentRecommendation.translations?.ur;
+      const ps = currentRecommendation.translations?.ps;
+      script =
+        targetLang === 'ur'
+          ? ur?.voiceScript || `${ur?.disease || currentRecommendation.disease}۔ ${ur?.action || currentRecommendation.action}`
+          : targetLang === 'ps'
+          ? ps?.voiceScript || `${ps?.disease || currentRecommendation.disease}۔ ${ps?.action || currentRecommendation.action}`
+          : `Assalamu Alaikum, dear farmer brother! Welcome back—I am speaking as your Kissan Dost. Your ${currentRecommendation.crop} crop is showing signs of ${currentRecommendation.disease}, so there is no need to worry at all when we treat it in time. ${currentRecommendation.action} Take your time spraying calmly in the morning, cover your nose and mouth with a clean cloth, and check the leaves again in a few days. May your hard work bring a rich, healthy harvest!`;
+    } else {
+      const district = liveWeather.district || activeFarm.district || 'Mardan';
+      const rainHigh = (liveWeather.rainProbability || 0) >= 50;
+      if (targetLang === 'ur') {
+        script = rainHigh
+          ? `السلام علیکم میرے پیارے کسان بھائی! خوش آمدید، میں آپ کا کسان دوست بول رہا ہوں۔ اس وقت ${district} میں بارش کا امکان ہے، اس لیے آج اسپرے نہ کریں تاکہ آپ کی دوائی ضائع نہ ہو۔ جب بھی کسی پودے کے پتے پر داغ یا پیلاہٹ نظر آئے تو اوپر کیمرے والے بٹن سے پتے کی تصویر کھینچیں، میں فوراً آپ کو صحیح علاج بتا دوں گا۔ اللہ آپ کی محنت میں برکت ڈالے!`
+          : `السلام علیکم میرے پیارے کسان بھائی! خوش آمدید، میں آپ کا کسان دوست بول رہا ہوں۔ اس وقت ${district} میں موسم بالکل صاف اور ہوا ہلکی ہے، صبح سات سے دس بجے اسپرے کے لیے بہت اچھا وقت ہے۔ اگر آپ کسی پودے کا پتہ چیک کروانا چاہتے ہیں تو اوپر پتے کی تصویر کھینچیں والے بٹن پر کلک کریں، میں آپ کو پورا مشورہ اور دوائی کی مقدار سناؤں گا۔ اللہ آپ کی فصل میں خوب برکت ڈالے!`;
+      } else if (targetLang === 'ps') {
+        script = rainHigh
+          ? `السلام علیکم زما خوږه زمینداره وروره! ستاسو کسان دوست خبرې کوي، پخیر راغلئ. اوس په ${district} کې د باران امکان شته، نو مهرباني وکړئ نن سپرے مه کوئ ترڅو ستاسو دوایي او پیسې ضایع نشي. کله چې په پاڼو کومه نښه ووینئ نو د کیمرې بټن کېکاږئ او تصویر واخلئ، زه به تاسو ته پوره علاج دروښیم. الله مو په فصل کې برکت واچوي!`
+          : `السلام علیکم زما خوږه زمینداره وروره! ستاسو کسان دوست خبرې کوي، پخیر راغلئ. اوس په ${district} کې موسم صاف او هوا ارامه ده، سهار د اوو نه تر لسو بجو د سپرے لپاره ډېر ښه وخت دی. که غواړئ د خپل فصل پاڼه وګورئ نو پورته د پاڼې تصویر واخلئ بټن کېکاږئ، زه به درته سمدلاسه مشوره درکړم. الله پاک مو روزي زیاته کړي!`;
+      } else {
+        script = rainHigh
+          ? `Assalamu Alaikum, dear farmer brother! Welcome back—I am your Kissan Dost. There is a chance of rain in ${district} today, so hold off on spraying for now so your medicine stays effective. Whenever you want to check a plant, tap Scan Plant Leaf above and I will give you clear guidance. Wishing you a healthy harvest!`
+          : `Assalamu Alaikum, dear farmer brother! Welcome back—I am your Kissan Dost. Weather in ${district} is calm and favorable right now, with an ideal morning spray window between 7 and 10 AM. Tap Scan Plant Leaf anytime to check a leaf and hear full treatment advice. Wishing you a rich, healthy harvest!`;
+      }
+    }
 
     setHomeLoadingLang(targetLang);
     VoiceAssistant.speak(
@@ -294,7 +257,7 @@ export default function App() {
     setCurrentRecommendation(result);
     setVerifierCrop(result.crop);
     setVerifierDisease(result.disease);
-    setScanHistory((prev) => [result, ...prev]);
+    setScanHistory((prev) => [result, ...prev.filter((s) => s.scanId !== result.scanId)].slice(0, 10));
     setActiveTab('decision');
 
     const newEvent: TimelineEvent = {
@@ -322,48 +285,40 @@ export default function App() {
     setActiveFarmId(newFarm.id);
   };
 
-  const handleOpenVerifierWithCrop = (crop: string, disease: string) => {
-    setVerifierCrop(crop);
-    setVerifierDisease(disease);
+  const openMedicineChecker = (crop?: string, disease?: string) => {
+    if (crop) setVerifierCrop(crop);
+    else if (currentRecommendation?.crop) setVerifierCrop(currentRecommendation.crop);
+    else if (activeFarm?.cropType) setVerifierCrop(activeFarm.cropType);
+
+    if (disease) setVerifierDisease(disease);
+    else if (currentRecommendation?.disease) setVerifierDisease(currentRecommendation.disease);
+
+    setVerifyResetKey((k) => k + 1);
     setActiveTab('verify');
   };
 
-  const localizedDisease =
-    language === 'ur'
-      ? currentRecommendation.translations?.ur?.disease || currentRecommendation.disease
-      : language === 'ps'
-      ? currentRecommendation.translations?.ps?.disease || currentRecommendation.disease
-      : currentRecommendation.disease;
+  const handleOpenVerifierWithCrop = (crop: string, disease: string) => {
+    openMedicineChecker(crop, disease);
+  };
 
-  const localizedAction =
-    language === 'ur'
-      ? currentRecommendation.translations?.ur?.action || currentRecommendation.action
-      : language === 'ps'
-      ? currentRecommendation.translations?.ps?.action || currentRecommendation.action
-      : currentRecommendation.action;
+  const handleSelectRecentScan = (scan: RecommendationResult) => {
+    setCurrentRecommendation(scan);
+    setVerifierCrop(scan.crop);
+    setVerifierDisease(scan.disease);
+    setActiveTab('decision');
+  };
 
-  const localizedBestTime =
-    language === 'ur'
-      ? currentRecommendation.translations?.ur?.bestTime || currentRecommendation.bestTime
-      : language === 'ps'
-      ? currentRecommendation.translations?.ps?.bestTime || currentRecommendation.bestTime
-      : currentRecommendation.bestTime;
-
-  const severityEmoji =
-    currentRecommendation.severity === 'Healthy'
-      ? '🟢'
-      : currentRecommendation.severity === 'Severe'
-      ? '🔴'
-      : '🟡';
-
-  const severityLabel =
-    currentRecommendation.severity === 'Healthy'
-      ? t.sevHealthy
-      : currentRecommendation.severity === 'Severe'
-      ? t.sevSevere
-      : currentRecommendation.severity === 'Mild'
-      ? t.sevMild
-      : t.sevModerate;
+  const handleClearRecentScans = () => {
+    setScanHistory([]);
+    setCurrentRecommendation(null);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(RECENT_SCANS_STORAGE_KEY);
+      } catch {
+        // Ignore storage errors
+      }
+    }
+  };
 
   const districtLabel = liveWeather.district || activeFarm.district || 'Mardan';
   const isRainRisk = (liveWeather.rainProbability || 0) >= 40;
@@ -597,94 +552,162 @@ export default function App() {
               </div>
             </section>
 
-            {/* 2. RECENT DIAGNOSIS CARD: Disease ↓ Recommendation ↓ Voice ↓ More Details */}
-            <section className="bg-white rounded-[20px] p-6 sm:p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-6 animate-diagnosis-slide">
-              {/* Top Row: Section Kicker & Spray Window */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[13px] font-normal text-[#6B7280]">
-                  {t.recentScan} · {activeFarm.district}
-                </span>
-                <span className="text-[13px] font-semibold text-[#0F6B4B]">
-                  {localizedBestTime}
-                </span>
-              </div>
-
-              {/* Disease Header with 72x72 Image or Dummy Leaf Icon Placeholder */}
-              <div className="flex items-start sm:items-center gap-4">
-                {currentRecommendation.imageUrl ? (
-                  <img
-                    src={currentRecommendation.imageUrl}
-                    alt={localizedDisease}
-                    referrerPolicy="no-referrer"
-                    className="w-[72px] h-[72px] rounded-[16px] object-cover shrink-0 shadow-xs"
-                  />
-                ) : (
-                  <div className="w-[72px] h-[72px] rounded-[16px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
-                    <Sprout className="w-8 h-8" />
+            {/* 2. RECENT SCANS SECTION (Only real scans performed by user; empty on fresh reload) */}
+            <section className="bg-white rounded-[20px] p-6 sm:p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-5 animate-diagnosis-slide">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-[12px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5" />
                   </div>
-                )}
-                <div className="space-y-1.5 min-w-0 flex-1">
-                  <h3 className="text-[20px] sm:text-[22px] font-bold text-[#17231F] leading-snug">
-                    {localizedDisease}
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-3 text-[13px] font-normal text-[#6B7280]">
-                    <span className="font-semibold text-[#17231F]">
-                      {severityEmoji} {severityLabel}
+                  <div className="min-w-0">
+                    <h3 className="text-[19px] sm:text-[21px] font-bold text-[#17231F] leading-tight">
+                      {language === 'ur'
+                        ? 'حالیہ اسکینز'
+                        : language === 'ps'
+                        ? 'وروستي سکینونه'
+                        : 'Recent Scans'}
+                    </h3>
+                    <p className="text-[12px] font-normal text-[#6B7280] mt-0.5">
+                      {language === 'ur'
+                        ? 'آپ کے اسکین کیے گئے پتوں کا ریکارڈ'
+                        : language === 'ps'
+                        ? 'ستاسو د سکین شویو پاڼو ریکارډ'
+                        : 'History of leaves you scanned'}
+                    </p>
+                  </div>
+                </div>
+
+                {scanHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearRecentScans}
+                    className="min-h-[38px] px-3 py-1.5 rounded-[12px] bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] font-semibold text-[12px] flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {language === 'ur'
+                        ? 'ریکارڈ صاف کریں'
+                        : language === 'ps'
+                        ? 'ریکارډ پاک کړئ'
+                        : 'Clear'}
                     </span>
+                  </button>
+                )}
+              </div>
+
+              {scanHistory.length === 0 ? (
+                <div className="p-6 rounded-[16px] bg-[#F7F8F6] text-center space-y-3">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center">
+                    <Sprout className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[16px] font-bold text-[#17231F]">
+                      {language === 'ur'
+                        ? 'ابھی تک کوئی اسکین نہیں ہوا'
+                        : language === 'ps'
+                        ? 'تراوسه کوم سکین نه دی شوی'
+                        : 'No recent scans yet'}
+                    </p>
+                    <p className="text-[13px] text-[#6B7280] max-w-md mx-auto">
+                      {language === 'ur'
+                        ? 'جب آپ پتے کی تصویر اسکین کریں گے تو آپ کے حالیہ اسکین یہاں محفوظ ہو جائیں گے۔'
+                        : language === 'ps'
+                        ? 'کله چې تاسو د پاڼې تصویر سکین کړئ، ستاسو وروستي سکینونه به دلته ښکاره شي.'
+                        : 'Once you scan a plant leaf, your recent scans will appear here for quick review.'}
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {scanHistory.map((scan) => {
+                    const scanDisease =
+                      language === 'ur'
+                        ? scan.translations?.ur?.disease || scan.disease
+                        : language === 'ps'
+                        ? scan.translations?.ps?.disease || scan.disease
+                        : scan.disease;
+                    const scanCrop =
+                      language === 'ur'
+                        ? scan.translations?.ur?.cropName || scan.crop
+                        : language === 'ps'
+                        ? scan.translations?.ps?.cropName || scan.crop
+                        : scan.crop;
+                    const scanSevEmoji =
+                      scan.severity === 'Healthy'
+                        ? '🟢'
+                        : scan.severity === 'Severe'
+                        ? '🔴'
+                        : '🟡';
+                    const scanSevLabel =
+                      scan.severity === 'Healthy'
+                        ? t.sevHealthy
+                        : scan.severity === 'Severe'
+                        ? t.sevSevere
+                        : scan.severity === 'Mild'
+                        ? t.sevMild
+                        : t.sevModerate;
+                    const formattedDate = scan.scanTimestamp
+                      ? new Date(scan.scanTimestamp).toLocaleDateString(
+                          language === 'ur' ? 'ur-PK' : language === 'ps' ? 'ps-AF' : 'en-US',
+                          { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+                        )
+                      : '';
 
-              {/* Recommendation Body (Regular 400 weight, 16px, clean light-green surface without heavy border) */}
-              <div className="p-5 rounded-[16px] bg-[#EBF5F0] space-y-1.5">
-                <div className="flex items-center gap-2 text-[#0F6B4B] font-semibold text-[13px]">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>
-                    {language === 'ur'
-                      ? 'ابھی کیا کرنا ہے:'
-                      : language === 'ps'
-                      ? 'اوس باید څه وکړئ:'
-                      : 'Recommended Action:'}
-                  </span>
+                    return (
+                      <button
+                        key={scan.scanId}
+                        type="button"
+                        onClick={() => handleSelectRecentScan(scan)}
+                        className="w-full p-4 rounded-[16px] bg-[#F7F8F6] hover:bg-[#EBF5F0] text-start transition-all flex items-center justify-between gap-4 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                          {scan.imageUrl ? (
+                            <img
+                              src={scan.imageUrl}
+                              alt={scanDisease}
+                              referrerPolicy="no-referrer"
+                              className="w-16 h-16 rounded-[14px] object-cover shrink-0 shadow-xs"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-[14px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
+                              <Sprout className="w-7 h-7" />
+                            </div>
+                          )}
+                          <div className="min-w-0 space-y-1 flex-1">
+                            <div className="text-[16px] sm:text-[17px] font-bold text-[#17231F] truncate">
+                              {scanDisease}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#6B7280]">
+                              <span className="font-semibold text-[#0F6B4B]">{scanCrop}</span>
+                              <span>•</span>
+                              <span>
+                                {scanSevEmoji} {scanSevLabel}
+                              </span>
+                              {formattedDate && (
+                                <>
+                                  <span>•</span>
+                                  <span>{formattedDate}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="w-9 h-9 rounded-full bg-white text-[#0F6B4B] flex items-center justify-center shrink-0 shadow-2xs">
+                          <ArrowRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="text-[16px] font-normal text-[#17231F] leading-relaxed">
-                  {localizedAction}
-                </p>
-              </div>
-
-              {/* Primary 56px Action Buttons: Voice ↓ More Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setIsVoiceModalOpen(true)}
-                  className="min-h-[56px] px-6 py-3.5 rounded-[16px] bg-[#F6B81A] hover:bg-[#F6B81A]/90 text-[#17231F] font-semibold text-[16px] flex items-center justify-center gap-2.5 transition-all cursor-pointer"
-                >
-                  <Volume2 className="w-5 h-5" />
-                  <span>
-                    {language === 'ur'
-                      ? 'آواز میں سنیں'
-                      : language === 'ps'
-                      ? 'په غږ واورئ'
-                      : 'Listen in Voice'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('decision')}
-                  className="min-h-[56px] px-6 py-3.5 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[16px] flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
-                >
-                  <span>{t.viewDetails}</span>
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
+              )}
             </section>
 
             {/* 3. BORDERLESS FEATURE CARDS (Whitespace + Subtle Shadow 0 8 24 rgba(0,0,0,0.06)) */}
             <section className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <button
                 type="button"
-                onClick={() => setActiveTab('verify')}
+                onClick={() => openMedicineChecker()}
                 className="p-6 rounded-[20px] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.09)] text-start transition-all flex flex-col justify-between gap-4 cursor-pointer"
               >
                 <div className="w-12 h-12 rounded-[16px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
@@ -786,28 +809,51 @@ export default function App() {
               </button>
             </div>
 
-            <RecommendationView
-              result={currentRecommendation}
-              language={language}
-              onLanguageChange={setLanguage}
-              onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
-              onSaveToTimeline={() => {
-                const newEvent: TimelineEvent = {
-                  id: `time-${Date.now()}`,
-                  farmId: activeFarmId,
-                  dayLabel: `Day ${timelineEvents.length + 1}`,
-                  title: `${currentRecommendation.disease}`,
-                  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                  status: currentRecommendation.severity === 'Healthy' ? 'healthy' : 'detected',
-                  description: currentRecommendation.action,
-                  crop: currentRecommendation.crop,
-                  disease: currentRecommendation.disease,
-                  severity: currentRecommendation.severity,
-                };
-                setTimelineEvents((prev) => [newEvent, ...prev]);
-              }}
-              onOpenVerifierWithCrop={handleOpenVerifierWithCrop}
-            />
+            {currentRecommendation ? (
+              <RecommendationView
+                result={currentRecommendation}
+                language={language}
+                onLanguageChange={setLanguage}
+                onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
+                onSaveToTimeline={() => {
+                  const newEvent: TimelineEvent = {
+                    id: `time-${Date.now()}`,
+                    farmId: activeFarmId,
+                    dayLabel: `Day ${timelineEvents.length + 1}`,
+                    title: `${currentRecommendation.disease}`,
+                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    status: currentRecommendation.severity === 'Healthy' ? 'healthy' : 'detected',
+                    description: currentRecommendation.action,
+                    crop: currentRecommendation.crop,
+                    disease: currentRecommendation.disease,
+                    severity: currentRecommendation.severity,
+                  };
+                  setTimelineEvents((prev) => [newEvent, ...prev]);
+                }}
+                onOpenVerifierWithCrop={handleOpenVerifierWithCrop}
+              />
+            ) : (
+              <div className="bg-white rounded-[20px] p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-full bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center">
+                  <Sprout className="w-8 h-8" />
+                </div>
+                <h3 className="text-[20px] font-bold text-[#17231F]">
+                  {language === 'ur'
+                    ? 'ابھی کوئی پتے کا اسکین منتخب نہیں ہے'
+                    : language === 'ps'
+                    ? 'تراوسه کوم سکین نه دی غوره شوی'
+                    : 'No leaf scan selected yet'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsScanModalOpen(true)}
+                  className="min-h-[52px] px-6 py-3 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[15px] inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <Camera className="w-5 h-5 text-[#F6B81A]" />
+                  <span>{t.scanCropBtn}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -821,23 +867,19 @@ export default function App() {
             onAddFarm={handleAddFarm}
             timelineEvents={timelineEvents}
             scanHistory={scanHistory}
-            onSelectScan={(scan) => {
-              setCurrentRecommendation(scan);
-              setVerifierCrop(scan.crop);
-              setVerifierDisease(scan.disease);
-              setActiveTab('decision');
-            }}
+            onSelectScan={handleSelectRecentScan}
           />
         )}
 
         {/* VIEW 4: PESTICIDE VERIFIER */}
         {activeTab === 'verify' && (
           <PesticideVerifier
+            key={verifyResetKey}
             language={language}
             presetCrop={verifierCrop}
             presetDisease={verifierDisease}
             activeDistrict={liveWeather.district || activeFarm.district}
-            hasActiveScan={scanHistory.length > 1 || currentRecommendation.scanId !== 'scan-init-01'}
+            hasActiveScan={Boolean(currentRecommendation)}
           />
         )}
 
@@ -1039,7 +1081,7 @@ export default function App() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('verify')}
+            onClick={() => openMedicineChecker()}
             className={`min-h-[58px] px-1 py-1.5 flex flex-col items-center justify-center gap-1 rounded-[14px] transition-all duration-200 cursor-pointer ${
               activeTab === 'verify'
                 ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold shadow-[0_2px_10px_rgba(15,107,75,0.12)]'

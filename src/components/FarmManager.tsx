@@ -260,60 +260,82 @@ export const FarmManager: React.FC<FarmManagerProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {scanHistory.map((scan) => {
-            const dot =
-              scan.severity === 'Healthy'
-                ? '🟢'
-                : scan.severity === 'Severe'
-                ? '🔴'
-                : '🟡';
-            const localizedDisease =
-              language === 'ur' && scan.translations?.ur?.disease
-                ? scan.translations.ur.disease
-                : language === 'ps' && scan.translations?.ps?.disease
-                ? scan.translations.ps.disease
-                : scan.disease;
+        {scanHistory.length === 0 ? (
+          <div className="p-6 rounded-[16px] bg-[#F7F8F6] text-center space-y-2">
+            <div className="w-12 h-12 mx-auto rounded-full bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center">
+              <Sprout className="w-6 h-6" />
+            </div>
+            <p className="text-[15px] font-semibold text-[#17231F]">
+              {language === 'ur'
+                ? 'ابھی تک کوئی اسکین محفوظ نہیں ہے'
+                : language === 'ps'
+                ? 'تراوسه کوم سکین نه دی ثبت شوی'
+                : 'No scans recorded yet'}
+            </p>
+            <p className="text-[13px] text-[#6B7280]">
+              {language === 'ur'
+                ? 'جب آپ پتے کی تصویر اسکین کریں گے تو وہ یہاں نظر آئے گی۔'
+                : language === 'ps'
+                ? 'کله چې تاسو د پاڼې تصویر سکین کړئ، دلته به ښکاره شي.'
+                : 'Scanned leaves will appear here for quick reference.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {scanHistory.map((scan) => {
+              const dot =
+                scan.severity === 'Healthy'
+                  ? '🟢'
+                  : scan.severity === 'Severe'
+                  ? '🔴'
+                  : '🟡';
+              const localizedDisease =
+                language === 'ur' && scan.translations?.ur?.disease
+                  ? scan.translations.ur.disease
+                  : language === 'ps' && scan.translations?.ps?.disease
+                  ? scan.translations.ps.disease
+                  : scan.disease;
 
-            return (
-              <div
-                key={scan.scanId}
-                onClick={() => onSelectScan(scan)}
-                className="p-4 rounded-[20px] bg-[#F7F8F6] hover:bg-[#EBF5F0] transition-all flex items-center justify-between gap-4 cursor-pointer"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  {scan.imageUrl ? (
-                    <img
-                      src={scan.imageUrl}
-                      alt={scan.crop}
-                      className="w-[72px] h-[72px] rounded-[16px] object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-[72px] h-[72px] rounded-[16px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
-                      <Sprout className="w-8 h-8" />
-                    </div>
-                  )}
-                  <div className="min-w-0 space-y-1">
-                    <div className="font-semibold text-[#17231F] text-[16px] truncate">
-                      {localizedDisease}
-                    </div>
-                    <div className="text-[13px] font-normal text-[#6B7280] flex items-center gap-2">
-                      <span>{dot} {scan.severity}</span>
-                      <span>•</span>
-                      <span>{getDistrictLocalized(scan.district)}</span>
+              return (
+                <div
+                  key={scan.scanId}
+                  onClick={() => onSelectScan(scan)}
+                  className="p-4 rounded-[20px] bg-[#F7F8F6] hover:bg-[#EBF5F0] transition-all flex items-center justify-between gap-4 cursor-pointer"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    {scan.imageUrl ? (
+                      <img
+                        src={scan.imageUrl}
+                        alt={scan.crop}
+                        className="w-[72px] h-[72px] rounded-[16px] object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-[72px] h-[72px] rounded-[16px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
+                        <Sprout className="w-8 h-8" />
+                      </div>
+                    )}
+                    <div className="min-w-0 space-y-1">
+                      <div className="font-semibold text-[#17231F] text-[16px] truncate">
+                        {localizedDisease}
+                      </div>
+                      <div className="text-[13px] font-normal text-[#6B7280] flex items-center gap-2">
+                        <span>{dot} {scan.severity}</span>
+                        <span>•</span>
+                        <span>{getDistrictLocalized(scan.district)}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-end shrink-0">
-                  <span className="text-[13px] font-semibold text-[#0F6B4B] bg-white px-3 py-1 rounded-[12px] shadow-2xs">
-                    {scan.crop}
-                  </span>
+                  <div className="text-end shrink-0">
+                    <span className="text-[13px] font-semibold text-[#0F6B4B] bg-white px-3 py-1 rounded-[12px] shadow-2xs">
+                      {scan.crop}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Crop Recovery Timeline */}

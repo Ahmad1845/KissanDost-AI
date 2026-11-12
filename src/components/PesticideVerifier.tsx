@@ -18,6 +18,7 @@ import {
   CalendarCheck,
   ShieldAlert,
   Upload,
+  RefreshCw,
 } from 'lucide-react';
 import { Language } from '../types';
 import { TRANSLATIONS } from '../data/translations';
@@ -241,6 +242,14 @@ export const PesticideVerifier: React.FC<PesticideVerifierProps> = ({
     } catch (err) {
       console.error('Image load failed:', err);
     }
+  };
+
+  const resetBottlePhoto = () => {
+    setPreviewImage('');
+    setShowPhotoOptions(false);
+    setPhotoMissingPrompt(false);
+    setPoorImageQualityPrompt(false);
+    setAnalysisResult(null);
   };
 
   const handleSubmitBottleScan = () => {
@@ -583,30 +592,32 @@ export const PesticideVerifier: React.FC<PesticideVerifierProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
               <div className="md:col-span-5 flex flex-col items-center gap-3">
                 {previewImage ? (
-                  <div
-                    onClick={() => setShowPhotoOptions((prev) => !prev)}
-                    className="relative group cursor-pointer"
-                  >
+                  <div className="w-full max-w-[280px] flex flex-col items-center gap-3">
                     <img
                       src={previewImage}
                       alt="Scanned Medicine Bottle"
                       referrerPolicy="no-referrer"
                       className="w-48 h-48 sm:w-56 sm:h-56 rounded-[20px] object-cover shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
                     />
-                    <div className="mt-2 text-center text-[13px] font-semibold text-[#0F6B4B]">
-                      {language === 'ur'
-                        ? 'تصویر تبدیل کرنے کے لیے یہاں کلک کریں'
-                        : language === 'ps'
-                        ? 'د تصویر بدلولو لپاره دلته کلیک وکړئ'
-                        : 'Tap photo to change'}
+                    <div className="w-full flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={resetBottlePhoto}
+                        className="min-h-[42px] px-4 py-2 rounded-[12px] bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] font-semibold text-[13px] flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4 shrink-0" />
+                        <span>
+                          {language === 'ur'
+                            ? 'تصویر تبدیل / ہٹائیں'
+                            : language === 'ps'
+                            ? 'تصویر بدل / لرې کړئ'
+                            : 'Change / Reset Photo'}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowPhotoOptions((prev) => !prev)}
-                    className="w-full max-w-[260px] min-h-[210px] rounded-[20px] bg-[#EBF5F0] border-2 border-dashed border-[#0F6B4B]/40 flex flex-col items-center justify-center gap-3 text-[#0F6B4B] p-5 text-center cursor-pointer hover:bg-[#EBF5F0]/80 transition-colors"
-                  >
+                  <div className="w-full max-w-[290px] rounded-[20px] bg-[#EBF5F0] border-2 border-dashed border-[#0F6B4B]/40 flex flex-col items-center justify-center gap-3.5 text-[#0F6B4B] p-5 text-center">
                     <FlaskConical className="w-11 h-11 shrink-0" />
                     <span className="text-[14px] font-bold leading-snug">
                       {language === 'ur'
@@ -615,47 +626,37 @@ export const PesticideVerifier: React.FC<PesticideVerifierProps> = ({
                         ? 'په کیمره د بوتل تصویر واخلئ یا له موبایل څخه یې اپلوډ کړئ'
                         : 'Take Bottle Photo with Camera or Upload from Mobile'}
                     </span>
-                    <span className="text-[12px] text-[#0F6B4B]/80 font-medium">
-                      {language === 'ur'
-                        ? 'آپشن دیکھنے کے لیے یہاں کلک کریں'
-                        : language === 'ps'
-                        ? 'د انتخاب لپاره دلته کلیک وکړئ'
-                        : 'Tap here to choose'}
-                    </span>
-                  </button>
-                )}
+                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="min-h-[46px] px-3 py-2 rounded-[12px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[13px] flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Camera className="w-4 h-4 shrink-0 text-[#F6B81A]" />
+                        <span>
+                          {language === 'ur'
+                            ? 'کیمرے سے تصویر'
+                            : language === 'ps'
+                            ? 'په کیمره تصویر'
+                            : 'Use Camera'}
+                        </span>
+                      </button>
 
-                {showPhotoOptions && (
-                  <div className="w-full max-w-[300px] grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 rounded-[16px] bg-[#F7F8F6] border border-[#0F6B4B]/15 animate-card-fade">
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="min-h-[48px] px-3 py-2.5 rounded-[12px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[13px] flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Camera className="w-4 h-4 shrink-0 text-[#F6B81A]" />
-                      <span>
-                        {language === 'ur'
-                          ? 'کیمرے سے تصویر لیں'
-                          : language === 'ps'
-                          ? 'په کیمره تصویر واخلئ'
-                          : 'Use Camera'}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      className="min-h-[48px] px-3 py-2.5 rounded-[12px] bg-white hover:bg-[#EBF5F0] text-[#17231F] border border-[#0F6B4B]/20 font-semibold text-[13px] flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Upload className="w-4 h-4 shrink-0 text-[#0F6B4B]" />
-                      <span>
-                        {language === 'ur'
-                          ? 'موبائل سے اپلوڈ کریں'
-                          : language === 'ps'
-                          ? 'له موبایل اپلوډ کړئ'
-                          : 'Upload from Mobile'}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="min-h-[46px] px-3 py-2 rounded-[12px] bg-white hover:bg-[#F7F8F6] text-[#17231F] border border-[#0F6B4B]/20 font-semibold text-[13px] flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4 shrink-0 text-[#0F6B4B]" />
+                        <span>
+                          {language === 'ur'
+                            ? 'موبائل سے اپلوڈ'
+                            : language === 'ps'
+                            ? 'له موبایل اپلوډ'
+                            : 'Upload Photo'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
