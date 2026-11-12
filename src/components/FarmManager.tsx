@@ -307,7 +307,7 @@ export const FarmManager: React.FC<FarmManagerProps> = ({
 
                 <div className="text-end shrink-0">
                   <span className="text-[13px] font-semibold text-[#0F6B4B] bg-white px-3 py-1 rounded-[12px] shadow-2xs">
-                    {scan.confidence}%
+                    {scan.crop}
                   </span>
                 </div>
               </div>

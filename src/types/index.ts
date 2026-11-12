@@ -63,12 +63,44 @@ export interface MLPredictionSummary {
   featureVector: number[];
 }
 
+export interface HybridConsensusSummary {
+  agreementLevel: 'HIGH' | 'MEDIUM' | 'LOW';
+  confidenceTier: 'High Confidence' | 'Medium Confidence' | 'Low Confidence';
+  finalConfidence: number;
+  geminiPrediction: string;
+  geminiConfidence: number;
+  leafVisionTop1: string;
+  leafVisionTop1Confidence: number;
+  matchedModelRank: 1 | 2 | 3 | null;
+  withholdTreatment: boolean;
+  requiresAdditionalImage: boolean;
+  consensusExplanation: string;
+  consensusExplanationUr: string;
+  consensusExplanationPs: string;
+}
+
 export interface RecommendationResult {
   scanId: string;
   crop: string;
+  cropConfidence?: number;
   disease: string;
+  diseaseConfidence?: number;
+  top3Predictions?: {
+    diseaseId: string;
+    diseaseName: string;
+    diseaseNameUr: string;
+    diseaseNamePs: string;
+    confidence: number;
+  }[];
+  hybridConsensus?: HybridConsensusSummary;
   pathogen?: string;
   severity: SeverityLevel;
+  affectedLeafPct?: number;
+  detectedSymptoms?: string[];
+  cropAgeDays?: number;
+  estimatedGrowthStage?: 'Seedling' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Harvest';
+  recentlySprayedPesticide?: boolean;
+  predictionExplanation?: string;
   confidence: number;
   action: string;
   bestTime: string;

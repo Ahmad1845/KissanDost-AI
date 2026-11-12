@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Camera,
   Home,
@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ShieldCheck,
 } from 'lucide-react';
-import { Language, UserRole, Farm, TimelineEvent, RecommendationResult } from './types';
+import { Language, UserRole, Farm, TimelineEvent, RecommendationResult, WeatherSnapshot } from './types';
 import { TRANSLATIONS } from './data/translations';
 import { Header } from './components/Header';
 import { CropScanModal } from './components/CropScanModal';
@@ -28,7 +28,6 @@ import { PesticideVerifier } from './components/PesticideVerifier';
 import { CommunityIntelligence } from './components/CommunityIntelligence';
 import { GovernmentDashboard } from './components/GovernmentDashboard';
 import { VoiceGuideModal } from './components/VoiceGuideModal';
-import { SAMPLE_CROP_IMAGES } from './data/knowledgeBase';
 import { VoiceAssistant } from './utils/audioSpeech';
 
 const DEFAULT_FARMS: Farm[] = [
@@ -71,25 +70,25 @@ const INITIAL_RECOMMENDATION: RecommendationResult = {
   pathogen: 'Alternaria solani',
   severity: 'Moderate',
   confidence: 96,
-  action: 'Do NOT spray today because afternoon rain will wash the medicine away. Spray Mancozeb tomorrow morning between 7:00 AM and 10:00 AM.',
-  bestTime: 'Tomorrow morning 7:00 AM - 10:00 AM',
+  action: 'Spray Mancozeb 75% WP (2.5g per litre of water) in the morning between 7:00 AM and 10:00 AM when wind is calm.',
+  bestTime: 'Morning 7:00 AM - 10:00 AM (Weather Favorable)',
   why: [
-    'Today afternoon rain will wash the medicine off the leaves and waste your money.',
-    'Tomorrow morning the weather will be dry and calm, so the medicine will stick well to the leaves.',
+    'Weather in Mardan is partly cloudy and calm (17°C, wind 5 km/h), suitable for morning spray.',
+    'Morning hours allow the medicine to stick well to the leaves without washing off.',
     'Yellow and brown rings on the lower tomato leaves show early blight fungus.',
   ],
   detailedExplanation:
-    'Your tomato plants have brown spots on the lower leaves. Because rain is coming this afternoon in Mardan, do not spray today. Spray Mancozeb tomorrow morning between 7 AM and 10 AM when the leaves are dry.',
+    'Your tomato plants have brown spots on the lower leaves. Weather in Mardan is calm and favorable, so spray Mancozeb between 7 AM and 10 AM when the leaves are dry.',
   weatherSnapshot: {
     district: 'Mardan',
-    temperature: 25,
-    humidity: 78,
-    windSpeed: 7,
-    precipitation: 2.4,
-    rainProbability: 55,
-    condition: 'Afternoon Rain Expected',
-    spraySuitability: 'Unfavorable Today - Favorable Tomorrow Morning',
-    weatherAdvice: 'Rain expected this afternoon in Mardan. Wait and spray tomorrow morning.',
+    temperature: 17,
+    humidity: 90,
+    windSpeed: 5,
+    precipitation: 0,
+    rainProbability: 26,
+    condition: 'Partly cloudy',
+    spraySuitability: 'Favorable',
+    weatherAdvice: 'Partly cloudy (17°C, humidity 90%, wind 5 km/h). Favorable window to spray.',
   },
   approvedTreatments: [
     {
@@ -116,42 +115,42 @@ const INITIAL_RECOMMENDATION: RecommendationResult = {
     { title: 'Safe Crop Spray Guide', source: 'PARC' },
   ],
   scanTimestamp: new Date().toISOString(),
-  imageUrl: SAMPLE_CROP_IMAGES[0].dataUrl,
+  imageUrl: '',
   district: 'Mardan',
   translations: {
     ur: {
       cropName: 'ٹماٹر (Tomato)',
       disease: 'ٹماٹر کے پتوں کا جھلساؤ (Early Blight)',
-      action: 'آج شام بارش کا امکان ہے اس لیے آج اسپرے ہرگز نہ کریں ورنہ دوائی دھل جائے گی۔ کل صبح 7 سے 10 بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔',
-      bestTime: 'کل صبح 7:00 سے 10:00 بجے تک',
-      whySummary: 'آج بارش کی وجہ سے دوائی ضائع ہو جائے گی۔ کل صبح ہوا کم ہوگی اور پتے خشک ہوں گے، تب اسپرے پورا اثر کرے گا۔',
+      action: 'صبح 7 سے 10 بجے کے درمیان جب موسم صاف اور ہوا ہلکی ہو تو مینکوزیب (ڈائیتھین M-45) دوائی کا اسپرے کریں۔',
+      bestTime: 'صبح 7:00 سے 10:00 بجے تک (موسم موزوں ہے)',
+      whySummary: 'مردان میں موسم جزوی ابر آلود اور ہوا ہلکی ہے، اس لیے صبح کے وقت اسپرے پورا اثر کرے گا۔',
       whyPoints: [
-        'آج شام مردان میں بارش کا امکان ہے جس سے دوائی دھل جائے گی اور پیسے ضائع ہوں گے۔',
-        'کل صبح 7 سے 10 بجے موسم صاف اور ہوا ہلکی ہوگی، دوائی پتوں پر اچھی طرح جم جائے گی۔',
-        'نچلے پیلے اور داغدار پتوں کو توڑ کر کھیت سے باہر زمین میں دبا دیں۔',
+        'نچلے پتوں پر گول بھورے دھبے اور پیلاہٹ نظر آ رہی ہے',
+        'صبح 7 سے 10 بجے ہوا ہلکی ہوگی اور دوائی پتوں پر اچھی طرح جم جائے گی',
+        'نچلے پیلے اور داغدار پتوں کو توڑ کر کھیت سے باہر زمین میں دبا دیں',
       ],
       medicineName: 'مینکوزیب (Mancozeb 75% WP / ڈائیتھین M-45)',
       dosageText: 'ایک لیٹر پانی میں ڈھائی گرام (آدھا چمچ) دوائی ملائیں — ایک ایکڑ کے لیے 600 سے 800 گرام',
       safetyText: 'اسپرے کرتے وقت منہ اور ناک پر کپڑا باندھیں اور ہاتھوں پر دستانے پہنیں۔ اسپرے کے بعد 7 دن تک ٹماٹر نہ توڑیں۔',
       voiceScript:
-        'السلام علیکم کسان بھائی! آپ کے ٹماٹر کے پودوں پر پتوں کے جھلساؤ یعنی ارلی بلائیٹ کی بیماری لگی ہے۔ غور سے سنیں: آج شام مردان میں بارش کا امکان ہے، اس لیے آج اسپرے ہرگز نہ کریں ورنہ آپ کی دوائی اور پیسے ضائع ہو جائیں گے۔ کل صبح سات بجے سے دس بجے کے درمیان جب پتے خشک ہوں تو مینکوزیب دوائی کا اسپرے کریں۔ ایک لیٹر پانی میں آدھا چمچ یعنی ڈھائی گرام دوائی ملائیں۔ اسپرے کرتے وقت منہ پر کپڑا ضرور باندھیں۔ اللہ آپ کی فصل میں برکت ڈالے۔',
+        'السلام علیکم کسان بھائی! آپ کے ٹماٹر کے پودوں پر پتوں کے جھلساؤ یعنی ارلی بلائیٹ کی بیماری لگی ہے۔ اس وقت مردان میں موسم اسپرے کے لیے موزوں ہے، اس لیے صبح سات بجے سے دس بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔ ایک لیٹر پانی میں آدھا چمچ یعنی ڈھائی گرام دوائی ملائیں۔ اسپرے کرتے وقت منہ پر کپڑا ضرور باندھیں۔ اللہ آپ کی فصل میں برکت ڈالے۔',
     },
     ps: {
       cropName: 'ټماټر (Tomato)',
       disease: 'د ټماټرو د پاڼو سوځېدل (Early Blight)',
-      action: 'نن مازدیګر د باران امکان شته، نو نن بالکل سپرے مه کوئ ګنې دوایي به مو ضایع شي. سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د مینکوزیب دوایۍ سپرے وکړئ.',
-      bestTime: 'سبا سهار د ۷:۰۰ نه تر ۱۰:۰۰ بجو پورې',
-      whySummary: 'نن د باران د وجې نه دوایي وینځل کیږي. سبا سهار هوا ارامه او پاڼې وچې وي، نو دوایي به پوره اثر وکړي.',
+      action: 'سهار د ۷ بجو نه تر ۱۰ بجو پورې چې هوا ارامه وي د مینکوزیب (ډایتین M-45) دوایۍ سپرے وکړئ.',
+      bestTime: 'سهار د ۷:۰۰ نه تر ۱۰:۰۰ بجو پورې (موسم ښه دی)',
+      whySummary: 'په مردان کې هوا ارامه ده، نو سهار مهال سپرے به په پاڼو پوره اثر وکړي.',
       whyPoints: [
-        'نن مازدیګر په مردان کې د باران امکان شته چې دوایي به له پاڼو ووینځي او پیسې به مو ضایع شي.',
-        'سبا سهار د ۷ نه تر ۱۰ بجو پورې هوا صافه او باد کم وي، دوایي به په پاڼو ښه اثر وکړي.',
-        'لاندې ژیړې او خرابې پاڼې وشکوئ او له پټي بهر یې په خاوره کې ښخې کړئ.',
+        'په لاندې پاڼو باندې نصواري داغونه او ژیړوالی ښکاري',
+        'سهار د ۷ نه تر ۱۰ بجو پورې باد کم وي، دوایي به په پاڼو ښه اثر وکړي',
+        'لاندې ژیړې او خرابې پاڼې وشکوئ او له پټي بهر یې په خاوره کې ښخې کړئ',
       ],
       medicineName: 'مینکوزیب دوایي (Mancozeb 75% WP / ډایتین M-45)',
       dosageText: 'په یو لیټر اوبو کې دوه نیم ګرامه (نیمه چمچه) دوایي مکس کړئ — د یو ایکړ لپاره له ۶۰۰ نه تر ۸۰۰ ګرامه',
       safetyText: 'د سپرے کولو په وخت خوله او پوزه په صافه کپړه وتړئ. له سپرے وروسته تر ۷ ورځو پورې ټماټر مه شکوئ.',
       voiceScript:
-        'السلام علیکم زما خوږه زمینداره وروره! ستاسو د ټماټرو په بوټو باندې د پاڼو د سوځېدو یعنې بلایټ بیماري لګېدلې ده. زما خبره په غور واورئ: نن مازدیګر په مردان کې د باران امکان شته، نو نن بالکل سپرے مه کوئ، ګنې باران به دوایي ووینځي او پیسې به مو ضایع شي. سبا سهار د اوو بجو نه تر لسو بجو پورې چې پاڼې وچې وي، د مینکوزیب دوایۍ سپرے وکړئ. په یو لیټر اوبو کې نیمه چمچه یعنې دوه نیم ګرامه دوایي مکس کړئ. د سپرے کولو په وخت خپله خوله او پوزه په صافه کپړه وتړئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي.',
+        'السلام علیکم زما خوږه زمینداره وروره! ستاسو د ټماټرو په بوټو باندې د پاڼو د سوځېدو یعنې بلایټ بیماري لګېدلې ده. اوس په مردان کې موسم د سپرے لپاره ښه دی، نو سهار د اوو بجو نه تر لسو بجو پورې د مینکوزیب دوایۍ سپرے وکړئ. په یو لیټر اوبو کې نیمه چمچه یعنې دوه نیم ګرامه دوایي مکس کړئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي.',
     },
   },
 };
@@ -223,11 +222,32 @@ export default function App() {
 
   const [verifierCrop, setVerifierCrop] = useState<string>('Tomato');
   const [verifierDisease, setVerifierDisease] = useState<string>('Early Blight');
+  const [liveWeather, setLiveWeather] = useState<WeatherSnapshot>(INITIAL_RECOMMENDATION.weatherSnapshot);
 
   const t = TRANSLATIONS[language];
   const isRtl = language === 'ur' || language === 'ps';
 
   const activeFarm = farms.find((f) => f.id === activeFarmId) || farms[0];
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/v1/weather?district=${encodeURIComponent(activeFarm.district)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.weather) {
+          setLiveWeather(data.weather);
+          setCurrentRecommendation((prev) =>
+            prev.scanId === 'scan-init-01'
+              ? { ...prev, district: activeFarm.district, weatherSnapshot: data.weather }
+              : prev
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFarm.district]);
 
   const handleQuickHomeListen = (targetLang: Language) => {
     if (homePlayingLang === targetLang || homeLoadingLang === targetLang) {
@@ -274,6 +294,8 @@ export default function App() {
 
   const handleAnalysisComplete = (result: RecommendationResult) => {
     setCurrentRecommendation(result);
+    setVerifierCrop(result.crop);
+    setVerifierDisease(result.disease);
     setScanHistory((prev) => [result, ...prev]);
     setActiveTab('decision');
 
@@ -496,30 +518,29 @@ export default function App() {
                 )}
               </div>
 
-              {/* Compact Weather Indicator at Bottom of Hero */}
-              <div className="pt-2 border-t border-white/15 flex flex-wrap items-center justify-between gap-2 text-[13px] font-normal text-white/85">
+              {/* Compact Weather Indicator at Bottom of Hero (Live Google Weather / Open-Meteo) */}
+              <div className="pt-2 border-t border-white/15 flex flex-wrap items-center justify-between gap-2 text-[13px] font-normal text-white/90">
                 <div className="flex items-center gap-2">
                   <CloudSun className="w-4 h-4 text-[#F6B81A] shrink-0" />
                   <span>
-                    {activeFarm.district} · 25°C ·{' '}
-                    {language === 'ur'
-                      ? 'شام کو بارش کا امکان (آج اسپرے نہ کریں)'
+                    {liveWeather.district || activeFarm.district} · {liveWeather.temperature}°C ·{' '}
+                    {liveWeather.rainProbability >= 50
+                      ? language === 'ur'
+                        ? `بارش کا امکان (${liveWeather.rainProbability}%) — آج اسپرے نہ کریں`
+                        : language === 'ps'
+                        ? `د باران امکان (${liveWeather.rainProbability}%) — نن سپرې مه کوئ`
+                        : `${liveWeather.condition} (${liveWeather.rainProbability}% Rain Risk — Delay Spray)`
+                      : language === 'ur'
+                      ? `${liveWeather.condition === 'Partly cloudy' ? 'جزوی ابر آلود' : 'موسم صاف'} · نمی ${liveWeather.humidity}% · ہوا ${liveWeather.windSpeed} km/h (اسپرے کے لیے موزوں)`
                       : language === 'ps'
-                      ? 'مازدیګر د باران امکان (نن سپرې مه کوئ)'
-                      : 'Rain Expected Today'}
+                      ? `${liveWeather.condition === 'Partly cloudy' ? 'لږې وریځې' : 'موسم صاف'} · نمي ${liveWeather.humidity}% · باد ${liveWeather.windSpeed} km/h (د سپرې لپاره ښه دی)`
+                      : `${liveWeather.condition} · Humidity ${liveWeather.humidity}% · Wind ${liveWeather.windSpeed} km/h`}
                   </span>
                 </div>
-                <span className="text-[12px] text-white/65">
-                  {language === 'ur'
-                    ? 'موسمی ذریعہ: Open-Meteo · آج اپڈیٹ ہوا'
-                    : language === 'ps'
-                    ? 'د هوا سرچینه: Open-Meteo · نن تازه شوی'
-                    : 'Weather Source: Open-Meteo · Updated Today'}
-                </span>
               </div>
             </section>
 
-            {/* 2. RECENT DIAGNOSIS CARD: Disease (72x72 + Confidence + Severity) ↓ Recommendation ↓ Voice ↓ More Details */}
+            {/* 2. RECENT DIAGNOSIS CARD: Disease ↓ Recommendation ↓ Voice ↓ More Details */}
             <section className="bg-white rounded-[20px] p-6 sm:p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-6 animate-diagnosis-slide">
               {/* Top Row: Section Kicker & Spray Window */}
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -531,15 +552,19 @@ export default function App() {
                 </span>
               </div>
 
-              {/* Disease Header with 72x72 Image, Severity Indicator & AI Confidence */}
+              {/* Disease Header with 72x72 Image or Dummy Leaf Icon Placeholder */}
               <div className="flex items-start sm:items-center gap-4">
-                {currentRecommendation.imageUrl && (
+                {currentRecommendation.imageUrl ? (
                   <img
                     src={currentRecommendation.imageUrl}
                     alt={localizedDisease}
                     referrerPolicy="no-referrer"
                     className="w-[72px] h-[72px] rounded-[16px] object-cover shrink-0 shadow-xs"
                   />
+                ) : (
+                  <div className="w-[72px] h-[72px] rounded-[16px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
+                    <Sprout className="w-8 h-8" />
+                  </div>
                 )}
                 <div className="space-y-1.5 min-w-0 flex-1">
                   <h3 className="text-[20px] sm:text-[22px] font-bold text-[#17231F] leading-snug">
@@ -548,19 +573,6 @@ export default function App() {
                   <div className="flex flex-wrap items-center gap-3 text-[13px] font-normal text-[#6B7280]">
                     <span className="font-semibold text-[#17231F]">
                       {severityEmoji} {severityLabel}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-semibold text-[#0F6B4B] tabular-nums">
-                      ✓ AI Confidence {currentRecommendation.confidence}%
-                    </span>
-                    <span aria-hidden="true" className="hidden sm:inline">·</span>
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[#6B7280]">
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#0F6B4B]" />
-                      {language === 'ur'
-                        ? 'زرعی ماہرین سے تصدیق شدہ'
-                        : language === 'ps'
-                        ? 'د کرنې پوهانو لخوا تایید شوی'
-                        : 'Verified by Agriculture Experts'}
                     </span>
                   </div>
                 </div>
@@ -754,6 +766,8 @@ export default function App() {
             scanHistory={scanHistory}
             onSelectScan={(scan) => {
               setCurrentRecommendation(scan);
+              setVerifierCrop(scan.crop);
+              setVerifierDisease(scan.disease);
               setActiveTab('decision');
             }}
           />
@@ -765,6 +779,8 @@ export default function App() {
             language={language}
             presetCrop={verifierCrop}
             presetDisease={verifierDisease}
+            activeDistrict={liveWeather.district || activeFarm.district}
+            hasActiveScan={scanHistory.length > 1 || currentRecommendation.scanId !== 'scan-init-01'}
           />
         )}
 

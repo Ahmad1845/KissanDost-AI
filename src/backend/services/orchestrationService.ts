@@ -17,6 +17,9 @@ export class AiOrchestrationService {
 
     const {
       finalRecommendation,
+      visionAnalysis,
+      hybridConsensus,
+      recentlySprayedPesticide,
       weather,
       ragContext,
       mlpPrediction,
@@ -30,7 +33,18 @@ export class AiOrchestrationService {
     const responseRecord = {
       ...finalRecommendation,
       scanId,
-      confidence: finalRecommendation.confidence || mlpPrediction.confidence,
+      crop: finalRecommendation.crop || visionAnalysis.detectedCrop,
+      cropConfidence: visionAnalysis.cropConfidence,
+      diseaseConfidence: hybridConsensus.finalConfidence,
+      top3Predictions: visionAnalysis.top3Predictions,
+      hybridConsensus,
+      affectedLeafPct: visionAnalysis.affectedLeafPct,
+      detectedSymptoms: visionAnalysis.detectedSymptoms,
+      cropAgeDays: visionAnalysis.cropAgeDays,
+      estimatedGrowthStage: visionAnalysis.estimatedGrowthStage,
+      recentlySprayedPesticide,
+      predictionExplanation: `${hybridConsensus.consensusExplanation} — ${visionAnalysis.predictionExplanation}`,
+      confidence: hybridConsensus.finalConfidence,
       weatherSnapshot: weather,
       groundedSources: ragContext.rankedDocuments.map((doc) => ({
         title: doc.title,

@@ -1,4 +1,4 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { settings } from '../config/settings.ts';
 import { cacheService, logger } from '../middleware/apiMiddleware.ts';
 import { DecisionEngineOutput, LeafBiomarkersSchema } from '../schemas/apiSchemas.ts';
@@ -46,6 +46,89 @@ export class GeminiAiService {
   }
 
   /**
+   * Fast (~1.3s) Visual Pathology & Biomarker Inspector using Gemini 3.1 Flash Lite / 2.5 Flash Lite.
+   * Ensures diseased leaves (e.g. Cotton vein blight, angular leaf spot, early/late blight, leaf curl)
+   * are never misclassified as healthy, and truly healthy leaves are verified accurately.
+   */
+  async inspectLeafImageFast(params: {
+    mimeType: string;
+    cleanBase64: string;
+    cropHint: string;
+  }): Promise<{
+    isHealthy: boolean;
+    diseaseCategory:
+      | 'healthy'
+      | 'bacterial_blight_or_spot'
+      | 'leaf_curl'
+      | 'early_blight'
+      | 'late_blight'
+      | 'yellow_rust';
+    estimatedGreenPct: number;
+    estimatedYellowPct: number;
+    estimatedBrownNecroticPct: number;
+    severity: 'Healthy' | 'Mild' | 'Moderate' | 'Severe';
+  } | null> {
+    const client = this.getClient();
+    if (!client || !params.cleanBase64) {
+      return null;
+    }
+
+    const fastModels = [
+      'gemini-3.1-flash-lite',
+      'gemini-3.1-flash-lite-preview',
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-flash',
+      settings.geminiVisionModel,
+    ];
+
+    const prompt = `You are an expert plant pathologist. Inspect this ${params.cropHint} leaf photo carefully (ignore human fingers/hands holding the petiole and ignore background field/soil).
+Look closely at the leaf blade and veins:
+- If there are dark brown/black necrotic vein streaks (vein blight), brown angular spots, necrotic lesions, target rings, fungal rust powder, or yellowing/curling, set "isHealthy": false and estimate the diseased percentages ("estimatedBrownNecroticPct" >= 15 for vein blight or brown spots).
+- Only set "isHealthy": true if the leaf blade and veins are completely clean, fresh green, and free of brown/black necrotic streaks or spots ("estimatedBrownNecroticPct" <= 2).
+
+Return ONLY a JSON object:
+{
+  "isHealthy": boolean,
+  "diseaseCategory": "healthy" | "bacterial_blight_or_spot" | "leaf_curl" | "early_blight" | "late_blight" | "yellow_rust",
+  "estimatedGreenPct": number,
+  "estimatedYellowPct": number,
+  "estimatedBrownNecroticPct": number,
+  "severity": "Healthy" | "Mild" | "Moderate" | "Severe"
+}`;
+
+    for (const modelName of fastModels) {
+      try {
+        const call = client.models.generateContent({
+          model: modelName,
+          contents: {
+            parts: [
+              { inlineData: { mimeType: params.mimeType, data: params.cleanBase64 } },
+              { text: prompt },
+            ],
+          },
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Fast vision timeout')), 5000)
+        );
+        const resp = await Promise.race([call, timeout]);
+        const txt = resp.text?.trim() || '';
+        if (txt) {
+          return JSON.parse(txt);
+        }
+      } catch (err: any) {
+        logger.warn('FAST_LEAF_INSPECT_FALLBACK', {
+          model: modelName,
+          error: err?.message?.slice(0, 120) || String(err),
+        });
+      }
+    }
+    return null;
+  }
+
+  /**
    * Stage 8: Safe Recommendation Generation grounded on RAG context & Decision Engine baselines
    */
   async generateGroundedRecommendation(params: {
@@ -68,19 +151,25 @@ export class GeminiAiService {
 
     try {
       const prompt = `You are KissanDost, a warm, caring village agricultural advisor helping low-literacy farmers in Khyber Pakhtunkhwa (KP), Pakistan.
-Analyze this crop leaf photo carefully using visual pathology inspection, multi-signal calibration, and the retrieved RAG agronomic context.
+Analyze this ${params.cropHint} leaf photo carefully using visual pathology inspection, the LeafVision Disease Model baseline, and the retrieved RAG agronomic context.
 
-CRITICAL VISUAL PATHOLOGY RULE:
-- Look closely at the leaf in the image for ANY necrotic brown/tan wedges, burnt leaf tips/edges, concentric target rings, dark water-soaked blight blotches, yellow chlorotic halos, or powdery yellow stripes.
-- Even if 60%–75% of the leaf or background foliage is green, if ANY part of the leaf has a brown, tan, black, or yellow lesion/blight wedge, the plant is DISEASED (e.g., Early Blight or Late Blight on Tomato, Yellow Stripe Rust on Wheat, or Leaf Blight on Maize) and MUST NEVER be classified as "Healthy"!
+LOCKED CROP RULE (CRITICAL):
+- The farmer has ALREADY selected the crop: **${params.cropHint}**.
+- DO NOT guess or change the crop! This leaf is 100% from a **${params.cropHint}** plant.
+- You MUST diagnose ONLY diseases that affect **${params.cropHint}** (or Healthy ${params.cropHint} if the leaf is clean and healthy). Never mention diseases of another crop (e.g., never mention Tomato when the crop is Cotton!).
+
+HYBRID DISEASE DETECTION & VERIFICATION:
+1. HAND / SKIN / BACKGROUND FILTER: Farmers in the field often hold the leaf edge or petiole with their fingers or thumb. IGNORE human hands, skin color, fingernails, soil, and sticks! Inspect ONLY the leaf blade and veins.
+2. DISEASED PLANTS (CRITICAL): Look closely at the leaf veins and blade! If the ${params.cropHint} leaf has dark brown/black vein blight streaks along the veins, angular brown spots, necrotic lesions, yellowing, or curling, it is DISEASED (NOT healthy!). Combine your visual inspection with the LeafVision Model baseline ("${params.baselineDecision.disease}") to give the accurate disease diagnosis and approved medicine for **${params.cropHint}**.
+3. HEALTHY PLANTS: Only if the ${params.cropHint} leaf blade and veins are completely clean green and free of dark brown/black vein blight, necrotic spots, or fungal lesions, classify it as HEALTHY ("severity": "Healthy", "disease": "Healthy ${params.cropHint} Plant - No Disease (بالکل صحت مند پودا)").
 
 Context:
-- Crop: ${params.cropHint}
+- Confirmed Crop: ${params.cropHint}
 - District: ${params.district}, KP
 - Current Weather: ${params.weather.temperature}°C, Rain Chance: ${params.weather.rainProbability}%, Wind: ${params.weather.windSpeed} km/h.
-- Farmer Reported Visible Signs: ${params.symptoms.length > 0 ? params.symptoms.join(', ') : 'None specified'}
+- Visible Signs: ${params.symptoms.length > 0 ? params.symptoms.join(', ') : 'None specified'}
 - Leaf Pixel Color Biomarkers (RGB/HSV): Healthy Green=${params.biomarkers.greenHealthyPct}%, Chlorotic Yellow=${params.biomarkers.yellowChloroticPct}%, Necrotic Brown=${params.biomarkers.brownNecroticPct}%
-- Trained Neural Network (MLP ${params.modelVersion}) Prediction: Class=${params.mlpPrediction.predictedClassId} (${params.mlpPrediction.confidence}% confidence), Severity=${params.mlpPrediction.severity}, SprayDecision=${params.mlpPrediction.sprayDecision}.
+- LeafVision Disease Model Baseline for ${params.cropHint}: "${params.baselineDecision.disease}", Recommended Medicine="${params.baselineDecision.approvedTreatments[0]?.name || ''}", Dosage="${params.baselineDecision.approvedTreatments[0]?.dosage || ''}".
 - Retrieved RAG Knowledge Base Context:
 ${params.ragPromptContext}
 
@@ -92,44 +181,44 @@ CRITICAL RULES FOR LOW-LITERACY FARMERS:
 Return ONLY a JSON object with this exact structure:
 {
   "crop": "${params.cropHint}",
-  "disease": "Simple Disease Name",
+  "disease": "Simple ${params.cropHint} Disease Name or Healthy ${params.cropHint} Plant",
   "severity": "Mild" | "Moderate" | "Severe" | "Healthy",
   "confidence": 96,
   "action": "1 simple clear sentence telling the farmer what to do",
-  "bestTime": "e.g., Tomorrow Morning 7:00 AM - 10:00 AM",
+  "bestTime": "e.g., Tomorrow Morning 7:00 AM - 10:00 AM or No Spray Needed",
   "why": ["Simple reason 1", "Simple reason 2", "Simple reason 3"],
-  "detailedExplanation": "2 simple sentences explaining the problem and why waiting for rain/dew saves money.",
+  "detailedExplanation": "2 simple sentences explaining the assessment.",
   "approvedTreatments": [
     {
-      "name": "Common medicine name",
-      "dosage": "Simple dosage per acre in 100 litres of water",
-      "withholding": "Wait X days before harvest",
-      "ppe": "Cover nose and mouth with a clean cloth while spraying"
+      "name": "Common medicine name or No Chemical Medicine Needed",
+      "dosage": "Simple dosage per acre or 0 grams",
+      "withholding": "Wait X days before harvest or Safe anytime",
+      "ppe": "Cover nose and mouth with a clean cloth while spraying or None needed"
     }
   ],
-  "organicAlternatives": ["Simple home/desi method 1", "Simple method 2"],
+  "organicAlternatives": ["Simple tip 1", "Simple tip 2"],
   "translations": {
     "ur": {
-      "cropName": "اردو میں فصل کا نام",
-      "disease": "آسان اردو میں بیماری کا نام",
+      "cropName": "اردو میں فصل کا نام (مثلاً کپاس، ٹماٹر، گندم)",
+      "disease": "آسان اردو میں بیماری کا نام (یا ماشاءاللہ بالکل صحت مند)",
       "action": "کسان کے لیے آسان اردو میں ایک واضح ہدایت",
-      "bestTime": "اسپرے کا بہترین وقت (مثلاً کل صبح ۷ سے ۱۰ بجے)",
+      "bestTime": "اسپرے کا بہترین وقت (یا اسپرے کی ضرورت نہیں)",
       "whySummary": "آسان الفاظ میں خلاصہ",
       "whyPoints": ["پہلی آسان وجہ", "دوسری آسان وجہ", "تیسری آسان وجہ"],
-      "medicineName": "منظور شدہ دوائی کا نام",
-      "dosageText": "پانی اور دوائی کی آسان مقدار (فی ایکڑ)",
+      "medicineName": "منظور شدہ دوائی کا نام (یا کسی دوائی کی ضرورت نہیں)",
+      "dosageText": "پانی اور دوائی کی آسان مقدار (یا پیسے بچائیں)",
       "safetyText": "آسان حفاظتی ہدایت",
       "voiceScript": "السلام علیکم کسان بھائی! سے شروع ہونے والا مکمل، محبت بھرا اور قدرتی اردو بول چال کا پیراگراف"
     },
     "ps": {
-      "cropName": "د مردان په اسانه پښتو کې د فصل نوم (لکه ټماټر، غنم، جوار)",
-      "disease": "د مردان په عامه پښتو کې د بیمارۍ نوم",
-      "action": "د زمیندار لپاره د مردان په ساده پښتو کې مشوره (د دوایي او سپرے توري وکاروئ)",
-      "bestTime": "د سپرے غوره وخت (لکه سبا سهار له ۷ تر ۱۰ بجو)",
+      "cropName": "د مردان په اسانه پښتو کې د فصل نوم (لکه پنبه، ټماټر، غنم، جوار)",
+      "disease": "د مردان په عامه پښتو کې د بیمارۍ نوم (یا روغ بوټی)",
+      "action": "د زمیندار لپاره د مردان په ساده پښتو کې مشوره",
+      "bestTime": "د سپرے غوره وخت (یا د سپرے هیڅ ضرورت نشته)",
       "whySummary": "په ساده کلیوالي پښتو لنډیز",
       "whyPoints": ["لومړی اسانه دلیل", "دوهم اسانه دلیل", "دریم اسانه دلیل"],
-      "medicineName": "منظور شوې دوایي",
-      "dosageText": "د اوبو او دوایۍ اسانه اندازه",
+      "medicineName": "منظور شوې دوایي (یا د هیڅ دوایۍ ضرورت نشته)",
+      "dosageText": "د اوبو او دوایۍ اسانه اندازه (یا پیسې بچت کړئ)",
       "safetyText": "اسانه احتیاطي خبره",
       "voiceScript": "السلام علیکم زما خوږه زمینداره وروره! څخه پیل کیدونکې د مردان او پېښور په ساده، خوږه او عامه کلیوالي پښتو وینا"
     }
@@ -137,7 +226,13 @@ Return ONLY a JSON object with this exact structure:
 }`;
 
       const visionModels = Array.from(
-        new Set([settings.geminiVisionModel, 'gemini-2.5-flash'])
+        new Set([
+          'gemini-3.1-flash-lite',
+          'gemini-3.1-flash-lite-preview',
+          'gemini-2.5-flash-lite',
+          settings.geminiVisionModel,
+          'gemini-2.5-flash',
+        ])
       );
       let textOutput = '';
 
@@ -158,9 +253,6 @@ Return ONLY a JSON object with this exact structure:
             },
             config: {
               responseMimeType: 'application/json',
-              thinkingConfig: {
-                thinkingLevel: ThinkingLevel.LOW,
-              },
             },
           });
 
@@ -185,13 +277,15 @@ Return ONLY a JSON object with this exact structure:
       if (!textOutput) return null;
       const parsed = JSON.parse(textOutput) as Partial<DecisionEngineOutput>;
 
-      // Safety guard: never allow an LLM hallucination of "Healthy" when biomarkers/DecisionEngine show disease
+      // Safety guard: only reject an LLM "Healthy" prediction if verified severe necrotic lesions (>30%) exist on the leaf blade
+      const hasVerifiedSevereLesions =
+        params.biomarkers.brownNecroticPct >= 30 &&
+        params.baselineDecision.severity === 'Severe';
+
       const isFalseHealthy =
-        params.baselineDecision.severity !== 'Healthy' &&
+        hasVerifiedSevereLesions &&
         (parsed.severity === 'Healthy' ||
-          (parsed.disease && parsed.disease.toLowerCase().includes('healthy')) ||
-          (parsed.translations?.ur?.disease &&
-            parsed.translations.ur.disease.includes('صحت مند')));
+          (parsed.disease && parsed.disease.toLowerCase().includes('healthy')));
 
       if (isFalseHealthy) {
         logger.warn('REJECTED_FALSE_HEALTHY_LLM_OUTPUT', {
@@ -212,8 +306,8 @@ Return ONLY a JSON object with this exact structure:
 
   /**
    * OCR + Vision AI for Pesticide Bottle Label Extraction & Counterfeit Inspection
-   * Extracts Brand Name, Active Ingredient, Company, Registration Number, Mfg/Expiry Dates,
-   * Batch Number, QR/Barcode presence, and checks for blurry print / fake label indicators.
+   * Extracts Brand Name, Active Ingredient, Product Type, Target Crops/Diseases,
+   * Expiry/Batch info, and checks for fake label indicators.
    */
   async analyzeMedicineBottleImage(params: {
     mimeType: string;
@@ -228,6 +322,12 @@ Return ONLY a JSON object with this exact structure:
     batchNumber?: string;
     barcode?: string;
     qrDetected?: boolean;
+    productType?: 'fungicide' | 'herbicide' | 'insecticide' | 'bactericide' | 'unknown';
+    targetCrops?: string[];
+    targetDiseases?: string[];
+    dosagePerLiter?: string;
+    dosagePer15LTank?: string;
+    dosagePerAcre?: string;
     isGenuineOverride?: boolean;
     counterfeitSignalsOverride?: string[];
     imageQualityPoor?: boolean;
@@ -238,38 +338,50 @@ Return ONLY a JSON object with this exact structure:
     }
 
     try {
-      const prompt = `You are an expert agrochemical OCR and counterfeit detection inspector for Khyber Pakhtunkhwa (KP) Agriculture Extension in Pakistan.
-Inspect this pesticide/fungicide bottle or packet image and extract all visible label text and authenticity cues.
+      const prompt = `You are an expert agrochemical label OCR and agricultural medicine inspector.
+Carefully read the text on this pesticide/fungicide/herbicide bottle or box image (the label may be in English, Urdu, Romanian, Spanish, Chinese, or another language — translate its crop and disease uses accurately to English!).
 
-Look for:
-1. Brand Name (e.g., "Aliette 80 WG", "Dithane M-45", "Ridomil Gold MZ 68 WG", "Tilt 250 EC", "Score 250 EC", "Karate 2.5 EC", "Paraquat")
-2. Active Ingredient (e.g., "Fosetyl-Aluminium 80%", "Mancozeb 75% WP", "Propiconazole 25% EC")
-3. Company (e.g., "Bayer", "Syngenta", "Corteva", "Swat Agro")
-4. Registration Number (e.g., "PAK-DPP-10482-F")
-5. Manufacturing Date (YYYY-MM) and Expiry Date (YYYY-MM)
-6. Batch Number
-7. Barcode digits or QR Code presence
-8. Counterfeit / Fake Signals: check for blurry printing, misspelled chemical names, missing registration number, or tampered seal.
-9. Image Quality: set "imageQualityPoor": true ONLY if the image is completely unreadable/blurry.
+Extract:
+1. "brandName": EXACT product name visible on the box/bottle (e.g., "Tilt 250 EC", "Aliette 80 WG", "Dithane M-45", "Score 250 EC", "Ridomil Gold MZ 68 WG", "Karate 2.5 EC", "Paraquat 20% SL", "Roundup", etc.). NEVER guess a different brand name!
+2. "activeIngredient": Exact chemical name & concentration (e.g., "Propiconazole 250 g/L", "Fosetyl-Aluminium 80%", "Mancozeb 75% WP").
+3. "company": Manufacturer name printed on the label (e.g., "Syngenta", "Bayer", "Corteva").
+4. "productType": "fungicide" | "herbicide" | "insecticide" | "bactericide" | "unknown". (Set "herbicide" if it is a weed killer / grass killer!).
+5. "targetCrops": Standard English list of main crops this product treats based on label/agronomy (use standard names when applicable: "Wheat", "Tomato", "Potato", "Maize", "Cotton", "Chili", "Onion", "Barley", "Cucumber", etc. For example, "grâu" = "Wheat", "ardei" = "Chili", "castraveți" = "Cucumber"). If it is a herbicide/weedkiller, set [].
+6. "targetDiseases": Standard English list of diseases/pests it treats (e.g., "Yellow Stripe Rust", "Stripe Rust", "Brown Rust", "Early Blight", "Late Blight", "Leaf Spot", "Powdery Mildew"). If it is a herbicide/weedkiller, set ["Weed Killer (Herbicide)"].
+7. "registrationNumber", "manufacturingDate", "expiryDate" (YYYY-MM if visible), "batchNumber", "barcode", "qrDetected".
+8. "isGenuineOverride": false ONLY if clearly tampered/fake/expired or toxic non-selective herbicide; otherwise true.
+9. "imageQualityPoor": true ONLY if the photo is too blurry/unreadable to read any product name.
 
-Return ONLY a JSON object with this structure:
+Return ONLY a JSON object:
 {
-  "brandName": "Extracted brand name",
-  "activeIngredient": "Extracted active ingredient",
-  "company": "Manufacturer name",
-  "registrationNumber": "Registration number or MISSING",
-  "manufacturingDate": "2026-01",
-  "expiryDate": "2027-01",
-  "batchNumber": "Batch code",
-  "barcode": "8964001254890",
+  "brandName": "Exact brand name from image",
+  "activeIngredient": "Active ingredient from image",
+  "company": "Company name from image",
+  "registrationNumber": "Visible reg number or Registered",
+  "manufacturingDate": "YYYY-MM",
+  "expiryDate": "2027-12",
+  "batchNumber": "Visible batch or BATCH-OK",
+  "barcode": "Visible digits or empty string",
   "qrDetected": true,
+  "productType": "fungicide",
+  "targetCrops": ["Wheat"],
+  "targetDiseases": ["Yellow Stripe Rust"],
+  "dosagePerLiter": "",
+  "dosagePer15LTank": "",
+  "dosagePerAcre": "",
   "isGenuineOverride": true,
-  "counterfeitSignalsOverride": ["Clear manufacturer logo and registration code"],
+  "counterfeitSignalsOverride": ["Readable original manufacturer label"],
   "imageQualityPoor": false
 }`;
 
       const visionModels = Array.from(
-        new Set([settings.geminiVisionModel, 'gemini-2.5-flash'])
+        new Set([
+          'gemini-3.1-flash-lite',
+          'gemini-3.1-flash-lite-preview',
+          'gemini-2.5-flash-lite',
+          'gemini-2.5-flash',
+          settings.geminiVisionModel,
+        ])
       );
       let textOutput = '';
 
@@ -290,9 +402,6 @@ Return ONLY a JSON object with this structure:
             },
             config: {
               responseMimeType: 'application/json',
-              thinkingConfig: {
-                thinkingLevel: ThinkingLevel.LOW,
-              },
             },
           });
 

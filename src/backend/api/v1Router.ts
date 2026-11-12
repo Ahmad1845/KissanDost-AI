@@ -131,10 +131,20 @@ v1Router.post('/v1/medicine/scan-bottle', async (req: Request, res: Response, ne
       }
     }
 
+    const hasUploadedImage = Boolean(
+      imageBase64 &&
+        typeof imageBase64 === 'string' &&
+        imageBase64.startsWith('data:image/') &&
+        !imageBase64.startsWith('data:image/svg+xml')
+    );
+
     const analysis = medicineService.analyzeBottleScan({
-      queryOrBottleId: bottleHint || ocrOverride?.brandName || 'Aliette 80 WG',
+      queryOrBottleId: hasUploadedImage
+        ? ocrOverride?.brandName || ocrOverride?.activeIngredient || bottleHint || ''
+        : bottleHint || ocrOverride?.brandName || 'Aliette 80 WG',
       barcode,
       ocrOverride,
+      hasUploadedImage,
       crop,
       disease,
       growthStage,

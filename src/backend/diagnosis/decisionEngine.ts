@@ -30,35 +30,53 @@ export class AgronomicDecisionEngine {
     } = input;
 
     const district = farmerLocation.district || 'Mardan';
-    const rainRisk = weather.rainProbability > 35;
+    const rainRisk = weather.rainProbability >= 50 || weather.precipitation > 0.2;
     const highWind = weather.windSpeed > 18;
 
-    const hasDiseaseSymptoms =
-      symptoms.includes('brown_spots') ||
-      symptoms.includes('yellow_powder') ||
-      symptoms.includes('long_tan_spots');
-    const hasLesionBiomarkers =
-      biomarkers.brownNecroticPct >= 5 || biomarkers.yellowChloroticPct >= 8;
+    const cropUrduMap: Record<string, string> = {
+      Tomato: 'ٹماٹر',
+      Potato: 'آلو',
+      Wheat: 'گندم',
+      Maize: 'مکئی',
+      Chili: 'مرچ',
+      Onion: 'پیاز',
+      Cotton: 'کپاس',
+      Okra: 'بھنڈی',
+    };
+    const cropPashtoMap: Record<string, string> = {
+      Tomato: 'ټماټر',
+      Potato: 'کچالو',
+      Wheat: 'غنم',
+      Maize: 'جوار',
+      Chili: 'مرچک',
+      Onion: 'پیاز',
+      Cotton: 'پنبه (کپاس)',
+      Okra: 'باميه (بھنډۍ)',
+    };
+    const resolvedCropUrdu = cropUrduMap[crop] || crop;
+    const resolvedCropPashto = cropPashtoMap[crop] || crop;
 
     const isHealthy =
-      !hasDiseaseSymptoms &&
-      !hasLesionBiomarkers &&
-      (predictedClassId === 'Healthy_Crop' ||
-        (symptoms.includes('healthy_green') && biomarkers.greenHealthyPct >= 88));
-    const isWheat =
-      !isHealthy &&
-      (predictedClassId === 'Wheat_Yellow_Rust' ||
-        crop.toLowerCase().includes('wheat') ||
-        symptoms.includes('yellow_powder'));
-    const isMaize =
-      !isHealthy &&
-      (predictedClassId === 'Maize_Northern_Leaf_Blight' ||
-        crop.toLowerCase().includes('maize') ||
-        symptoms.includes('long_tan_spots'));
+      (predictedClassId === 'Healthy_Crop' || symptoms.includes('healthy_green')) &&
+      biomarkers.brownNecroticPct <= 5 &&
+      biomarkers.yellowChloroticPct <= 14;
+
+    const cropLower = crop.toLowerCase();
+    const isWheat = !isHealthy && cropLower.includes('wheat');
+    const isMaize = !isHealthy && cropLower.includes('maize');
+    const isCotton = !isHealthy && cropLower.includes('cotton');
+    const isPotato = !isHealthy && cropLower.includes('potato');
+    const isChili = !isHealthy && cropLower.includes('chili');
+    const isOnion = !isHealthy && cropLower.includes('onion');
     const isLateBlight =
       !isHealthy &&
-      (predictedClassId === 'Tomato_Late_Blight' ||
-        (!isWheat && !isMaize && biomarkers.brownNecroticPct >= 28));
+      !isWheat &&
+      !isMaize &&
+      !isCotton &&
+      !isPotato &&
+      !isChili &&
+      !isOnion &&
+      (predictedClassId === 'Tomato_Late_Blight' || biomarkers.brownNecroticPct >= 28);
 
     const warnings: string[] = [];
     if (rainRisk) {
@@ -76,22 +94,22 @@ export class AgronomicDecisionEngine {
 
     if (isHealthy) {
       return {
-        crop: 'Tomato',
-        disease: 'Healthy Plant - No Disease (بالکل صحت مند پودا)',
+        crop,
+        disease: `Healthy ${crop} Plant - No Disease (بالکل صحت مند پودا)`,
         severity: 'Healthy',
         confidence: Math.max(confidenceScore, 96),
-        action: 'Your plant is completely healthy! Do NOT spray any chemical medicine — save your money.',
+        action: `Your ${crop} crop is completely healthy! Do NOT spray any chemical medicine — save your money.`,
         bestTime: 'No Spray Needed (اسپرے کی ضرورت نہیں)',
-        warnings: ['Do not apply preventive chemical fungicides on healthy foliage.'],
+        warnings: ['Do not apply preventive chemical fungicides or toxic sprays on healthy foliage.'],
         irrigationAdvice: 'Maintain regular root-zone irrigation in the early morning; avoid wetting foliage at night.',
         confidenceExplanation,
         why: [
-          'Leaves are bright green and clean with no disease spots',
-          'Spraying chemicals on a healthy crop wastes money and harms the plant',
+          'Leaves are bright green and clean with no disease spots or lesions',
+          'Spraying chemicals on a healthy crop wastes money and harms plant vigour',
           'Continue normal watering and check your field twice a week',
         ],
         detailedExplanation:
-          'Mashallah! Your crop leaf is completely healthy and green. No chemical spray is needed.',
+          `Mashallah! Your ${crop} leaf is completely healthy and green. No chemical spray is needed.`,
         approvedTreatments: [
           {
             name: 'No Chemical Medicine Needed (کوئی دوائی نہ ڈالیں)',
@@ -108,11 +126,11 @@ export class AgronomicDecisionEngine {
         consultOfficer: false,
         translations: {
           ur: {
-            cropName: 'ٹماٹر',
-            disease: 'ماشاءاللہ! بالکل صحت مند پودا (کوئی بیماری نہیں)',
-            action: 'آپ کی فصل بالکل تندرست ہے! کسی قسم کی کیمیکل دوائی یا اسپرے ہرگز نہ کریں اور اپنے پیسے بچائیں۔',
+            cropName: resolvedCropUrdu,
+            disease: `ماشاءاللہ! بالکل صحت مند ${resolvedCropUrdu} (کوئی بیماری نہیں)`,
+            action: `آپ کی ${resolvedCropUrdu} کی فصل بالکل تندرست ہے! کسی قسم کی کیمیکل دوائی یا اسپرے ہرگز نہ کریں اور اپنے پیسے بچائیں۔`,
             bestTime: 'اسپرے کی بالکل ضرورت نہیں',
-            whySummary: 'آپ کے پودے کے پتے بالکل سرسبز اور صاف ہیں۔ صحت مند فصل پر دوائی ڈالنا پیسے کا ضیاع ہے۔',
+            whySummary: `آپ کی ${resolvedCropUrdu} کے پتے بالکل سرسبز اور صاف ہیں۔ صحت مند فصل پر دوائی ڈالنا پیسے کا ضیاع ہے۔`,
             whyPoints: [
               'پتے بالکل سرسبز اور صاف ہیں، کوئی داغ یا بیماری نہیں ہے',
               'بلاوجہ اسپرے کرنے سے پیسے ضائع ہوتے ہیں اور پودے کو نقصان پہنچتا ہے',
@@ -122,14 +140,14 @@ export class AgronomicDecisionEngine {
             dosageText: 'کوئی کیمیکل اسپرے نہ کریں — صرف معمول کے مطابق پانی دیں',
             safetyText: 'آپ کی فصل بالکل محفوظ ہے',
             voiceScript:
-              'السلام علیکم کسان بھائی! ماشاءاللہ خوشخبری ہے! میں نے آپ کے پودے کا پتہ غور سے دیکھا ہے اور یہ بالکل صحت مند اور سرسبز ہے۔ اس پر کوئی بیماری نہیں ہے۔ اس لیے آپ کوئی بھی کیمیکل دوائی یا اسپرے ہرگز نہ کریں اور اپنے حلال کے پیسے بچائیں۔ بس وقت پر پانی دیتے رہیں اور کھیت کو گھاس پھوس سے صاف رکھیں۔ اللہ آپ کی فصل میں خوب برکت ڈالے!',
+              `السلام علیکم کسان بھائی! ماشاءاللہ خوشخبری ہے! میں نے آپ کی ${resolvedCropUrdu} کے پودے کا پتہ غور سے دیکھا ہے اور یہ بالکل صحت مند اور سرسبز ہے۔ اس پر کوئی بیماری نہیں ہے۔ اس لیے آپ کوئی بھی کیمیکل دوائی یا اسپرے ہرگز نہ کریں اور اپنے حلال کے پیسے بچائیں۔ بس وقت پر پانی دیتے رہیں اور کھیت کو گھاس پھوس سے صاف رکھیں۔ اللہ آپ کی فصل میں خوب برکت ڈالے!`,
           },
           ps: {
-            cropName: 'ټماټر',
-            disease: 'ماشاءالله! بالکل روغ بوټی (هیڅ بیماري نشته)',
-            action: 'ستاسو فصل بالکل روغ او تازه دی! هیڅ دوایي یا سپرے مه کوئ او خپلې پیسې بچت کړئ.',
+            cropName: resolvedCropPashto,
+            disease: `ماشاءالله! بالکل روغ بوټی (هیڅ بیماري نشته)`,
+            action: `ستاسو د ${resolvedCropPashto} فصل بالکل روغ او تازه دی! هیڅ دوایي یا سپرے مه کوئ او خپلې پیسې بچت کړئ.`,
             bestTime: 'د سپرے هیڅ ضرورت نشته',
-            whySummary: 'ستاسو د بوټي پاڼې تکې شنې او صافې دي. په روغ فصل باندې سپرے کول د پیسو تاوان دی.',
+            whySummary: `ستاسو د ${resolvedCropPashto} بوټي پاڼې تکې شنې او صافې دي. په روغ فصل باندې سپرے کول د پیسو تاوان دی.`,
             whyPoints: [
               'پاڼې بالکل شنې او صافې دي، هیڅ داغ یا بیماري پکې نشته',
               'بې ضرورته سپرے کول پیسې ضایع کوي او فصل ته تاوان رسوي',
@@ -139,7 +157,7 @@ export class AgronomicDecisionEngine {
             dosageText: 'هیڅ سپرے مه کوئ — صرف په وخت اوبه ورکړئ',
             safetyText: 'ستاسو فصل بالکل محفوظ دی',
             voiceScript:
-              'السلام علیکم زما خوږه زمینداره وروره! ماشاءالله زیری مې درباندې! ما ستاسو د بوټي پاڼه په غور سره وکتله، دا بالکل روغه او تکه شنه ده او هیڅ بیماري پکې نشته. نو تاسو هیڅ کیمیکل دوایي یا سپرے مه کوئ او خپلې حلالې پیسې بچت کړئ. بس په خپل وخت اوبه ورکوئ او پټی صاف ساتئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!',
+              `السلام علیکم زما خوږه زمینداره وروره! ماشاءالله زیری مې درباندې! ما ستاسو د ${resolvedCropPashto} پاڼه په غور سره وکتله، دا بالکل روغه او تکه شنه ده او هیڅ بیماري پکې نشته. نو تاسو هیڅ کیمیکل دوایي یا سپرے مه کوئ او خپلې حلالې پیسې بچت کړئ. بس په خپل وخت اوبه ورکوئ او پټی صاف ساتئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!`,
           },
         },
       };
@@ -293,6 +311,366 @@ export class AgronomicDecisionEngine {
       };
     }
 
+    if (isCotton) {
+      const hasBrownSpots = biomarkers.brownNecroticPct >= 6 || symptoms.includes('brown_spots');
+      if (hasBrownSpots) {
+        return {
+          crop: 'Cotton',
+          disease: 'Cotton Bacterial Blight / Leaf Spot (کپاس کا بیکٹیریل جھلساؤ / پتوں کے دھبے)',
+          severity: biomarkers.brownNecroticPct >= 25 ? 'Severe' : 'Moderate',
+          confidence: confidenceScore || 94,
+          action: rainRisk
+            ? 'Wait for rain to stop, then spray Copper Oxychloride tomorrow morning between 7:00 AM and 10:00 AM.'
+            : 'Spray Copper Oxychloride 50% WP tomorrow morning between 7:00 AM and 10:00 AM.',
+          bestTime: 'Tomorrow Morning 7:00 AM - 10:00 AM',
+          warnings,
+          irrigationAdvice: 'Avoid heavy flood irrigation in humid weather to prevent bacterial leaf spot spread.',
+          confidenceExplanation,
+          why: [
+            'Angular brown and dark necrotic spots are visible on the cotton leaf blade',
+            'Humid weather spreads bacterial leaf blight to nearby cotton bolls and leaves',
+            'Copper Oxychloride stops bacterial and fungal spots from damaging the cotton crop',
+          ],
+          detailedExplanation:
+            'Your cotton leaf shows brown necrotic spots (Bacterial Blight / Leaf Spot). Spraying Copper Oxychloride in the morning will protect the foliage and cotton bolls.',
+          approvedTreatments: [
+            {
+              name: 'Copper Oxychloride 50% WP (کاپر آکسی کلورائیڈ)',
+              dosage: '500 grams in 100 litres of water for 1 Acre',
+              withholding: 'Stop spraying 14 days before cotton picking',
+              ppe: 'Cover nose and mouth with a clean cloth and wash hands with soap after spraying',
+            },
+          ],
+          organicAlternatives: [
+            'Remove and bury heavily spotted fallen cotton leaves outside the field',
+            'Keep field ridges clean from weeds to improve air flow',
+          ],
+          nextReviewDays: 5,
+          consultOfficer: false,
+          translations: {
+            ur: {
+              cropName: 'کپاس',
+              disease: 'کپاس کا بیکٹیریل جھلساؤ (پتوں کے بھورے دھبے)',
+              action: rainRisk
+                ? 'آج بارش کا امکان ہے اس لیے آج اسپرے نہ کریں! کل صبح ۷ سے ۱۰ بجے کاپر آکسی کلورائیڈ دوائی کا اسپرے کریں۔'
+                : 'کل صبح ۷ سے ۱۰ بجے کے درمیان کاپر آکسی کلورائیڈ دوائی کا اسپرے کریں تاکہ کپاس کے پتے اور ٹینڈے محفوظ رہیں۔',
+              bestTime: 'کل صبح ۷ سے ۱۰ بجے',
+              whySummary: 'کپاس کے پتے پر بھورے اور سیاہ دھبے بن رہے ہیں جو بیکٹیریل جھلساؤ کی علامت ہیں۔ صبح کے وقت اسپرے کرنے سے بیماری رک جائے گی۔',
+              whyPoints: [
+                'کپاس کے پتے پر بھورے اور گہرے دھبے نظر آ رہے ہیں',
+                'نمی والے موسم میں یہ بیماری دوسرے پتوں اور ٹینڈوں تک پھیل سکتی ہے',
+                'کاپر آکسی کلورائیڈ دوائی ان دھبوں اور جھلساؤ کو فوری روکتی ہے',
+              ],
+              medicineName: 'کاپر آکسی کلورائیڈ ۵۰ فیصد (Copper Oxychloride 50% WP)',
+              dosageText: 'ایک ایکڑ میں ۵۰۰ گرام دوائی ۱۰۰ لیٹر پانی میں ملا کر اسپرے کریں',
+              safetyText: 'منہ پر کپڑا باندھ کر اسپرے کریں اور چنائی سے ۱۴ دن پہلے اسپرے بند کر دیں',
+              voiceScript:
+                'السلام علیکم کسان بھائی! میں نے آپ کی کپاس کے پتے کو غور سے چیک کیا ہے۔ اس پتے پر بھورے رنگ کے دھبے اور بیکٹیریل جھلساؤ کے آثار نظر آ رہے ہیں۔ پریشان نہ ہوں، اس کے علاج کے لیے آپ کل صبح سات بجے سے دس بجے کے درمیان کاپر آکسی کلورائیڈ دوائی پانچ سو گرام ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں۔ اس سے کپاس کے پتے اور ٹینڈے بالکل محفوظ ہو جائیں گے۔ اللہ آپ کی فصل میں خوب برکت ڈالے!',
+            },
+            ps: {
+              cropName: 'پنبه (کپاس)',
+              disease: 'د پنبې د پاڼو نصواري داغونه (بکتیریایي بلایټ)',
+              action: 'سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د کاپر آکسي کلورایډ دوایۍ سپرے وکړئ ترڅو د پنبې پاڼې او غوزې بچ پاتې شي.',
+              bestTime: 'سبا سهار د ۷ نه تر ۱۰ بجو پورې',
+              whySummary: 'د پنبې په پاڼه باندې نصواري داغونه ښکاري. د کاپر آکسي کلورایډ سپرے به دا بیماري زر تر زره ودروي.',
+              whyPoints: [
+                'د پنبې په پاڼه باندې نصواري او تور داغونه جوړ شوي دي',
+                'په نمجنه هوا کې دا داغونه نورو پاڼو ته خوریږي',
+                'سهار وختي سپرے کول پاڼې او غوزې له تاوانه ساتي',
+              ],
+              medicineName: 'کاپر آکسي کلورایډ دوایي (Copper Oxychloride 50% WP)',
+              dosageText: 'د یو ایکړ لپاره ۵۰۰ ګرامه دوایي په ۱۰۰ لیټره اوبو کې مکس کړئ او سپرے وکړئ',
+              safetyText: 'د سپرے کولو په وخت خوله او پوزه په کپړه وتړئ او د پنبې ټولولو نه ۱۴ ورځې مخکې سپرے بند کړئ',
+              voiceScript:
+                'السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د پنبې پاڼه په غور سره وکتله. په دې پاڼه باندې نصواري داغونه او د پاڼو د سوځېدو بیماري ښکاري. هیڅ فکر مه کوئ، سبا سهار د اوو بجو نه تر لسو بجو پورې پنځه سوه ګرامه کاپر آکسي کلورایډ دوایي په سلو لیټرو اوبو کې مکس کړئ او په پټي باندې سپرے وکړئ. په دې سره به ستاسو د پنبې بوټي او غوزې له هر تاوانه بچ شي. الله پاک دې ستاسو فصل ته برکت ورکړي!',
+            },
+          },
+        };
+      }
+
+      return {
+        crop: 'Cotton',
+        disease: 'Cotton Leaf Curl Virus (کپاس کا پتہ مروڑ وائرس)',
+        severity: 'Moderate',
+        confidence: confidenceScore || 94,
+        action: 'Spray Flonicamid (Ulala) tomorrow morning between 7:00 AM and 10:00 AM to control whitefly spreading leaf curl.',
+        bestTime: 'Tomorrow Morning 7:00 AM - 10:00 AM',
+        warnings,
+        irrigationAdvice: 'Maintain balanced irrigation and apply potassium sulfate to strengthen cotton leaves.',
+        confidenceExplanation,
+        why: [
+          'Cotton leaves show yellowing, vein thickening, and curling caused by whitefly-transmitted virus',
+          'Controlling whitefly immediately stops the virus from spreading to healthy cotton plants',
+          'Morning spray hits the underside of cotton leaves when whiteflies are less active',
+        ],
+        detailedExplanation:
+          'Your cotton plant shows signs of Cotton Leaf Curl Virus spread by whitefly. Spraying Ulala (Flonicamid) tomorrow morning will eliminate whitefly and protect new cotton growth.',
+        approvedTreatments: [
+          {
+            name: 'Ulala 50 WG / Flonicamid (الالا دوائی)',
+            dosage: '80 grams in 100 litres of water for 1 Acre',
+            withholding: 'Stop spraying 14 days before cotton picking',
+            ppe: 'Cover nose and mouth with a clean cloth while spraying',
+          },
+        ],
+        organicAlternatives: [
+          'Install yellow sticky traps in the cotton field to catch whiteflies',
+          'Remove weeds around water channels where whiteflies hide',
+        ],
+        nextReviewDays: 5,
+        consultOfficer: false,
+        translations: {
+          ur: {
+            cropName: 'کپاس',
+            disease: 'کپاس کا پتہ مروڑ وائرس (لیف کرل)',
+            action: 'کل صبح ۷ سے ۱۰ بجے کے درمیان الالا (فلونیکامیڈ) دوائی کا اسپرے کریں تاکہ سفید مکھی ختم ہو اور بیماری نہ پھیلے۔',
+            bestTime: 'کل صبح ۷ سے ۱۰ بجے',
+            whySummary: 'کپاس کے پتے مڑ رہے ہیں اور پیلے ہو رہے ہیں جو سفید مکھی سے پھیلنے والے وائرس کی علامت ہے۔',
+            whyPoints: [
+              'کپاس کے پتوں میں پیلاہٹ اور مڑنے کے آثار ہیں',
+              'سفید مکھی اس بیماری کو ایک پودے سے دوسرے پودے تک پھیلاتی ہے',
+              'الالا دوائی کا اسپرے سفید مکھی کو ختم کر کے نئی شاخوں کو محفوظ رکھے گا',
+            ],
+            medicineName: 'الالا ۵۰ ڈبلیو جی (Ulala / Flonicamid 50 WG)',
+            dosageText: 'ایک ایکڑ میں ۸۰ گرام دوائی ۱۰۰ لیٹر پانی میں ملا کر اسپرے کریں',
+            safetyText: 'منہ پر کپڑا باندھ کر اسپرے کریں اور چنائی سے ۱۴ دن پہلے اسپرے بند کر دیں',
+            voiceScript:
+              'السلام علیکم کسان بھائی! میں نے آپ کی کپاس کے پتے کا معائنہ کر لیا ہے۔ اس پر پتہ مروڑ وائرس کے آثار ہیں جو سفید مکھی کی وجہ سے پھیلتا ہے۔ آپ کل صبح سات سے دس بجے کے درمیان الالا دوائی اسی گرام ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں تاکہ سفید مکھی ختم ہو جائے اور کپاس کے نئے پتے تندرست نکلیں۔ اللہ آپ کی فصل میں برکت ڈالے!',
+          },
+          ps: {
+            cropName: 'پنبه (کپاس)',
+            disease: 'د پنبې د پاڼو تاوېدلو بیماري (لیف کرل)',
+            action: 'سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د الالا (فلونیکامیډ) دوایۍ سپرے وکړئ ترڅو سپینه مچۍ ختمه شي.',
+            bestTime: 'سبا سهار د ۷ نه تر ۱۰ بجو پورې',
+            whySummary: 'د پنبې پاڼې ژیړې شوي او تاویږي چې د سپینې مچۍ له وجې خوریږي.',
+            whyPoints: [
+              'د پنبې په پاڼو کې ژیړوالی او تاوېدل ښکاري',
+              'سپینه مچۍ دا بیماري نورو بوټو ته خوروي',
+              'د الالا دوایۍ سپرے به سپینه مچۍ ختمه کړي او فصل به بچ کړي',
+            ],
+            medicineName: 'الالا ۵۰ ډبلیو جي دوایي (Ulala 50 WG)',
+            dosageText: 'په یو ایکړ کې ۸۰ ګرامه دوایي په ۱۰۰ لیټره اوبو کې مکس کړئ او سپرے وکړئ',
+            safetyText: 'د سپرے کولو په وخت خوله او پوزه په کپړه وتړئ',
+            voiceScript:
+              'السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د پنبې پاڼه وکتله. په دې باندې د پاڼو تاوېدلو بیماري ده چې د سپینې مچۍ له لارې خوریږي. تاسو سبا سهار د اوو بجو نه تر لسو بجو پورې اتیا ګرامه الالا دوایي په سلو لیټرو اوبو کې مکس کړئ او سپرے وکړئ ترڅو سپینه مچۍ ختمه شي او فصل مو روغ پاتې شي. الله پاک دې ستاسو په فصل کې برکت واچوي!',
+          },
+        },
+      };
+    }
+
+    if (isPotato) {
+      return {
+        crop: 'Potato',
+        disease: 'Potato Leaf Blight (آلو کے پتوں کا جھلساؤ)',
+        severity: biomarkers.brownNecroticPct >= 25 ? 'Severe' : 'Moderate',
+        confidence: confidenceScore || 94,
+        action: 'Spray Ridomil Gold or Mancozeb tomorrow morning between 7:00 AM and 10:00 AM.',
+        bestTime: 'Tomorrow Morning 7:00 AM - 10:00 AM',
+        warnings,
+        irrigationAdvice: 'Keep potato ridges well-drained and avoid wetting leaves in the evening.',
+        confidenceExplanation,
+        why: [
+          'Brown blight lesions are visible on the potato leaflets',
+          'Cool humid weather accelerates potato blight spread across ridges',
+          'Morning fungicide spray protects the foliage so tubers grow large underground',
+        ],
+        detailedExplanation:
+          'Your potato leaf has blight lesions. Spraying Ridomil Gold tomorrow morning will stop the leaf blight and protect potato tuber yield.',
+        approvedTreatments: [
+          {
+            name: 'Ridomil Gold MZ 68 WG (ریڈومل گولڈ / مینکوزیب)',
+            dosage: '500 grams in 100 litres of water for 1 Acre',
+            withholding: 'Stop spraying 14 days before digging potatoes',
+            ppe: 'Cover nose and mouth with a clean cloth while spraying',
+          },
+        ],
+        organicAlternatives: [
+          'Remove and bury heavily blighted bottom potato leaves',
+          'Avoid excessive nitrogen urea during humid weather',
+        ],
+        nextReviewDays: 4,
+        consultOfficer: false,
+        translations: {
+          ur: {
+            cropName: 'آلو',
+            disease: 'آلو کے پتوں کا جھلساؤ (بلائیٹ)',
+            action: 'کل صبح ۷ سے ۱۰ بجے کے درمیان ریڈومل گولڈ یا مینکوزیب دوائی کا اسپرے کریں۔',
+            bestTime: 'کل صبح ۷ سے ۱۰ بجے',
+            whySummary: 'آلو کے پتوں پر بھورے دھبے اور جھلساؤ کے آثار ہیں۔ بروقت اسپرے کرنے سے زمین کے نیچے آلو موٹے اور محفوظ رہیں گے۔',
+            whyPoints: [
+              'آلو کے پتوں پر بھورے اور گہرے دھبے نظر آ رہے ہیں',
+              'نمی والے موسم میں یہ جھلساؤ تیزی سے پھیلتا ہے',
+              'کل صبح اسپرے کرنے سے بیماری فوری رک جائے گی',
+            ],
+            medicineName: 'ریڈومل گولڈ (Ridomil Gold MZ 68 WG)',
+            dosageText: 'ایک ایکڑ میں ۵۰۰ گرام دوائی ۱۰۰ لیٹر پانی میں ملا کر اسپرے کریں',
+            safetyText: 'منہ پر کپڑا باندھ کر اسپرے کریں اور آلو نکالنے سے ۱۴ دن پہلے اسپرے بند کر دیں',
+            voiceScript:
+              'السلام علیکم کسان بھائی! میں نے آپ کے آلو کے پودے کا پتہ غور سے دیکھا ہے۔ اس پر جھلساؤ کے بھورے دھبے بن رہے ہیں۔ آپ کل صبح سات سے دس بجے کے درمیان ریڈومل گولڈ دوائی پانچ سو گرام ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں۔ اس سے آلو کی بیل اور زمین کے نیچے آلو بالکل محفوظ رہیں گے۔ اللہ آپ کی فصل میں خوب برکت ڈالے!',
+          },
+          ps: {
+            cropName: 'الوګان (کچالو)',
+            disease: 'د الوګانو د پاڼو سوځېدل (بلایټ بیماري)',
+            action: 'سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د ریډومل ګولډ یا مینکوزیب دوایۍ سپرے وکړئ.',
+            bestTime: 'سبا سهار د ۷ نه تر ۱۰ بجو پورې',
+            whySummary: 'د الوګانو په پاڼو نصواري داغونه دي. سهار وختي سپرے کول به د الوګانو حاصل له تاوانه وساتي.',
+            whyPoints: [
+              'د الوګانو په پاڼو باندې نصواري داغونه ښکاري',
+              'په نمجنه هوا کې دا بیماري زر خوریږي',
+              'د ریډومل ګولډ دوایۍ سپرے به دا بیماري ختمه کړي',
+            ],
+            medicineName: 'ریډومل ګولډ دوایي (Ridomil Gold MZ 68 WG)',
+            dosageText: 'د یو ایکړ لپاره ۵۰۰ ګرامه دوایي په ۱۰۰ لیټره اوبو کې مکس کړئ او سپرے وکړئ',
+            safetyText: 'د سپرے کولو په وخت خوله او پوزه په کپړه وتړئ',
+            voiceScript:
+              'السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د الوګانو پاڼه په غور سره وکتله. په دې باندې د پاڼو د سوځېدو یعنې بلایټ بیماري لګېدلې ده. تاسو سبا سهار د اوو بجو نه تر لسو بجو پورې پنځه سوه ګرامه ریډومل ګولډ دوایي په سلو لیټرو اوبو کې مکس کړئ او په پټي باندې سپرے وکړئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!',
+          },
+        },
+      };
+    }
+
+    if (isChili) {
+      return {
+        crop: 'Chili',
+        disease: 'Chili Leaf Spot & Anthracnose (مرچ کے پتوں کے دھبے اور جھلساؤ)',
+        severity: 'Moderate',
+        confidence: confidenceScore || 94,
+        action: 'Spray Amistar Top or Mancozeb tomorrow morning between 7:00 AM and 10:00 AM.',
+        bestTime: 'Tomorrow Morning 7:00 AM - 10:00 AM',
+        warnings,
+        irrigationAdvice: 'Water chili plants in furrows carefully without splashing soil onto lower leaves.',
+        confidenceExplanation,
+        why: [
+          'Brown spots and yellowing are visible on the chili leaf',
+          'Fungal leaf spot can cause flower drop and fruit rot if left untreated',
+          'Morning fungicide spray protects both chili leaves and developing pods',
+        ],
+        detailedExplanation:
+          'Your chili leaf shows fungal leaf spots. Spraying Amistar Top or Mancozeb tomorrow morning will stop leaf drop and protect chili pods.',
+        approvedTreatments: [
+          {
+            name: 'Amistar Top / Mancozeb 75% WP (ایمسٹار ٹاپ یا مینکوزیب)',
+            dosage: '200 ml Amistar Top (or 600g Mancozeb) in 100 litres of water for 1 Acre',
+            withholding: 'Stop spraying 7 days before picking chilies',
+            ppe: 'Cover nose and mouth with a clean cloth while spraying',
+          },
+        ],
+        organicAlternatives: [
+          'Neem oil 5ml per litre of water spray',
+          'Remove fallen spotted leaves around the chili stem',
+        ],
+        nextReviewDays: 4,
+        consultOfficer: false,
+        translations: {
+          ur: {
+            cropName: 'مرچ',
+            disease: 'مرچ کے پتوں کا جھلساؤ اور دھبے',
+            action: 'کل صبح ۷ سے ۱۰ بجے کے درمیان ایمسٹار ٹاپ یا مینکوزیب دوائی کا اسپرے کریں۔',
+            bestTime: 'کل صبح ۷ سے ۱۰ بجے',
+            whySummary: 'مرچ کے پتے پر بھورے دھبے بن رہے ہیں جس سے پھول اور پتے گر سکتے ہیں۔ صبح اسپرے کرنے سے فصل محفوظ رہے گی۔',
+            whyPoints: [
+              'مرچ کے پتوں پر بھورے دھبے اور پیلاہٹ ہے',
+              'علاج نہ کرنے سے مرچ کے پھول گرنے کا خطرہ ہوتا ہے',
+              'صبح ۷ سے ۱۰ بجے اسپرے کرنے سے پتے اور پھل محفوظ ہو جائیں گے',
+            ],
+            medicineName: 'ایمسٹار ٹاپ یا مینکوزیب (Amistar Top / Mancozeb)',
+            dosageText: 'ایک ایکڑ میں ۲۰۰ ملی لیٹر ایمسٹار ٹاپ (یا ۶۰۰ گرام مینکوزیب) ۱۰۰ لیٹر پانی میں ملا کر اسپرے کریں',
+            safetyText: 'منہ پر کپڑا باندھ کر اسپرے کریں اور مرچ توڑنے سے ۷ دن پہلے اسپرے بند کر دیں',
+            voiceScript:
+              'السلام علیکم کسان بھائی! میں نے آپ کی مرچ کے پتے کو غور سے چیک کیا ہے۔ اس پر بھورے دھبے اور جھلساؤ کی بیماری نظر آ رہی ہے۔ آپ کل صبح سات سے دس بجے کے درمیان دو سو ملی لیٹر ایمسٹار ٹاپ یا چھ سو گرام مینکوزیب دوائی ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں۔ اس سے مرچ کے پتے اور پھول گرنے سے بچ جائیں گے۔ اللہ آپ کی فصل میں برکت ڈالے!',
+          },
+          ps: {
+            cropName: 'مرچک',
+            disease: 'د مرچکو د پاڼو داغونه او سوځېدل',
+            action: 'سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د ایمسټار ټاپ یا مینکوزیب دوایۍ سپرے وکړئ.',
+            bestTime: 'سبا سهار د ۷ نه تر ۱۰ بجو پورې',
+            whySummary: 'د مرچکو په پاڼو نصواري داغونه دي. سهار وختي سپرے کول به د مرچکو ګلان او مېوه له تویېدو وساتي.',
+            whyPoints: [
+              'د مرچکو په پاڼو باندې نصواري داغونه او ژیړوالی دی',
+              'له علاج پرته د مرچکو ګلان او پاڼې توییږي',
+              'سهار وختي سپرے کول به دا بیماري زر ودروي',
+            ],
+            medicineName: 'ایمسټار ټاپ یا مینکوزیب دوایي',
+            dosageText: 'په یو ایکړ کې ۲۰۰ ملي لیټره ایمسټار ټاپ (یا ۶۰۰ ګرامه مینکوزیب) په ۱۰۰ لیټره اوبو کې سپرے کړئ',
+            safetyText: 'د سپرے کولو په وخت خوله او پوزه په کپړه وتړئ او د مرچکو شکولو نه ۷ ورځې مخکې سپرے بند کړئ',
+            voiceScript:
+              'السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د مرچکو پاڼه په غور سره وکتله. په دې باندې نصواري داغونه جوړ شوي دي. تاسو سبا سهار د اوو بجو نه تر لسو بجو پورې دوه سوه ملي لیټره ایمسټار ټاپ یا شپږ سوه ګرامه مینکوزیب دوایي په سلو لیټرو اوبو کې مکس کړئ او سپرے وکړئ. الله پاک دې ستاسو په فصل کې برکت واچوي!',
+          },
+        },
+      };
+    }
+
+    if (isOnion) {
+      return {
+        crop: 'Onion',
+        disease: 'Onion Purple Blotch / Leaf Blight (پیاز کا جامنی جھلساؤ)',
+        severity: 'Moderate',
+        confidence: confidenceScore || 94,
+        action: 'Spray Mancozeb tomorrow morning between 7:00 AM and 10:00 AM.',
+        bestTime: 'Tomorrow Morning 7:00 AM - 10:00 AM',
+        warnings,
+        irrigationAdvice: 'Avoid standing water in onion beds to reduce humidity around bulbs.',
+        confidenceExplanation,
+        why: [
+          'Brownish-purple blotches and tip drying are visible on the onion leaves',
+          'Protecting the green onion tops ensures the underground onion bulb grows large',
+          'Morning spray adheres well to onion leaves',
+        ],
+        detailedExplanation:
+          'Your onion crop has Purple Blotch leaf blight. Spraying Mancozeb tomorrow morning will protect the green leaves and onion bulbs.',
+        approvedTreatments: [
+          {
+            name: 'Mancozeb 75% WP (مینکوزیب)',
+            dosage: '600 grams in 100 litres of water for 1 Acre',
+            withholding: 'Stop spraying 7 days before harvesting onions',
+            ppe: 'Cover nose and mouth with a clean cloth while spraying',
+          },
+        ],
+        organicAlternatives: [
+          'Keep onion beds free of weeds for better sunlight and airflow',
+          'Avoid excessive late-evening irrigation',
+        ],
+        nextReviewDays: 4,
+        consultOfficer: false,
+        translations: {
+          ur: {
+            cropName: 'پیاز',
+            disease: 'پیاز کے پتوں کا جامنی جھلساؤ (پرپل بلاچ)',
+            action: 'کل صبح ۷ سے ۱۰ بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔',
+            bestTime: 'کل صبح ۷ سے ۱۰ بجے',
+            whySummary: 'پیاز کے پتوں پر بھورے اور جامنی دھبے بن رہے ہیں جس سے پیاز کی گنڈھی کمزور ہو سکتی ہے۔',
+            whyPoints: [
+              'پیاز کی نالیوں اور پتوں پر بھورے دھبے اور سوکھا پن ہے',
+              'پتے تندرست رہیں گے تو زمین کے نیچے پیاز موٹا بنے گا',
+              'کل صبح مینکوزیب کا اسپرے اس بیماری کو روک دے گا',
+            ],
+            medicineName: 'مینکوزیب (ڈائیتھین ایم-۴۵)',
+            dosageText: 'ایک ایکڑ میں ۶۰۰ گرام دوائی ۱۰۰ لیٹر پانی میں ملا کر اسپرے کریں',
+            safetyText: 'منہ پر کپڑا باندھ کر اسپرے کریں اور پیاز نکالنے سے ۷ دن پہلے اسپرے بند کر دیں',
+            voiceScript:
+              'السلام علیکم کسان بھائی! میں نے آپ کے پیاز کے پتے کو غور سے چیک کیا ہے۔ اس پر جھلساؤ کے دھبے نظر آ رہے ہیں۔ آپ کل صبح سات سے دس بجے کے درمیان مینکوزیب دوائی چھ سو گرام ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں تاکہ پیاز کے پتے سرسبز رہیں اور پیاز موٹا بنے۔ اللہ آپ کی فصل میں برکت ڈالے!',
+          },
+          ps: {
+            cropName: 'پیاز',
+            disease: 'د پیازو د پاڼو سوځېدل (پرپل بلاچ)',
+            action: 'سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د مینکوزیب دوایۍ سپرے وکړئ.',
+            bestTime: 'سبا سهار د ۷ نه تر ۱۰ بجو پورې',
+            whySummary: 'د پیازو په پاڼو نصواري داغونه دي. سهار وختي سپرے کول به د پیازو غوټې غټې او روغې وساتي.',
+            whyPoints: [
+              'د پیازو په پاڼو باندې نصواري داغونه او وچوالی ښکاري',
+              'د پاڼو روغ ساتل د پیازو غوټه غټوي',
+              'د مینکوزیب سپرے به دا بیماري زر ودروي',
+            ],
+            medicineName: 'مینکوزیب دوایي (ډایتین ایم-۴۵)',
+            dosageText: 'په یو ایکړ کې ۶۰۰ ګرامه دوایي په ۱۰۰ لیټره اوبو کې مکس کړئ او سپرے وکړئ',
+            safetyText: 'د سپرے کولو په وخت خوله او پوزه په کپړه وتړئ',
+            voiceScript:
+              'السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د پیازو پاڼه وکتله. په دې باندې د پاڼو د سوځېدو داغونه ښکاري. تاسو سبا سهار د اوو بجو نه تر لسو بجو پورې شپږ سوه ګرامه مینکوزیب دوایي په سلو لیټرو اوبو کې مکس کړئ او سپرے وکړئ. الله پاک دې ستاسو په فصل کې برکت واچوي!',
+          },
+        },
+      };
+    }
+
     if (isLateBlight) {
       return {
         crop: 'Tomato',
@@ -409,36 +787,50 @@ export class AgronomicDecisionEngine {
         ur: {
           cropName: 'ٹماٹر',
           disease: 'ٹماٹر کے پتوں کا جھلساؤ (ارلی بلائیٹ)',
-          action: 'آج بارش کا امکان ہے اس لیے آج اسپرے ہرگز نہ کریں! کل صبح ۷ سے ۱۰ بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔',
-          bestTime: 'کل صبح ۷ سے ۱۰ بجے',
-          whySummary: 'پودے کے نچلے پتوں پر گول بھورے داغ ہیں۔ آج بارش سے دوائی دھل جائے گی اور پیسے ضائع ہوں گے، اس لیے کل صبح اسپرے کریں۔',
+          action: rainRisk
+            ? 'آج بارش کا امکان ہے اس لیے آج اسپرے ہرگز نہ کریں! کل صبح ۷ سے ۱۰ بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔'
+            : 'صبح ۷ سے ۱۰ بجے کے درمیان جب موسم صاف اور ہوا ہلکی ہو تو مینکوزیب (ڈائیتھین ایم-۴۵) دوائی کا اسپرے کریں۔',
+          bestTime: rainRisk ? 'کل صبح ۷ سے ۱۰ بجے' : 'صبح ۷:۰۰ سے ۱۰:۰۰ بجے (موسم موزوں ہے)',
+          whySummary: rainRisk
+            ? 'پودے کے نچلے پتوں پر گول بھورے داغ ہیں۔ آج بارش سے دوائی دھل جائے گی، اس لیے کل صبح اسپرے کریں۔'
+            : 'پودے کے نچلے پتوں پر گول بھورے داغ ہیں۔ موسم اسپرے کے لیے موزوں ہے، صبح ۷ سے ۱۰ بجے اسپرے کریں۔',
           whyPoints: [
             'نچلے پتوں پر گول بھورے دھبے اور پیلاہٹ نظر آ رہی ہے',
-            'آج بارش کا امکان ہے، آج اسپرے کرنے سے دوائی دھل جائے گی اور پیسے ضائع ہوں گے',
-            'کل صبح ۷ سے ۱۰ بجے ہوا کم ہوگی اور دوائی پودے پر پورا اثر کرے گی',
+            rainRisk
+              ? 'آج بارش کا امکان ہے، آج اسپرے کرنے سے دوائی دھل جائے گی'
+              : `اس وقت ${district} میں درجہ حرارت ${weather.temperature}°C اور ہوا ${weather.windSpeed} km/h ہے جو اسپرے کے لیے موزوں ہے`,
+            'صبح ۷ سے ۱۰ بجے دوائی پودے کے پتوں پر پورا اثر کرے گی',
           ],
           medicineName: 'مینکوزیب (ڈائیتھین ایم-۴۵)',
           dosageText: 'ایک ایکڑ کے لیے ۶۰۰ سے ۸۰۰ گرام دوائی ۱۰۰ لیٹر پانی میں ملا کر اسپرے کریں',
           safetyText: 'منہ پر کپڑا باندھ کر اسپرے کریں اور ٹماٹر توڑنے سے ۷ دن پہلے اسپرے بند کر دیں',
-          voiceScript:
-            'السلام علیکم کسان بھائی! میں نے آپ کے ٹماٹر کے پودے کا پتہ غور سے دیکھ لیا ہے۔ گھبرانے کی کوئی بات نہیں، پودے کے نچلے پتوں پر جھلساؤ کی درمیانی بیماری شروع ہو رہی ہے۔ میری بات دھیان سے سنیں: آج بارش کا امکان ہے، اس لیے آج اسپرے ہرگز نہ کریں ورنہ بارش سے ساری دوائی دھل جائے گی اور آپ کی محنت اور پیسے ضائع ہوں گے۔ آپ کل صبح سات بجے سے دس بجے کے درمیان، جب پتے خشک ہوں، مینکوزیب یعنی ڈائیتھین ایم پینتالیس دوائی چھ سو گرام ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں۔ خراب نچلے پتوں کو توڑ کر مٹی میں دبا دیں۔ اللہ آپ کی فصل میں خوب برکت ڈالے!',
+          voiceScript: rainRisk
+            ? 'السلام علیکم کسان بھائی! آپ کے ٹماٹر کے پودے کے نچلے پتوں پر جھلساؤ یعنی ارلی بلائیٹ کی بیماری ہے۔ آج بارش کا امکان ہے اس لیے آج اسپرے نہ کریں۔ کل صبح سات سے دس بجے کے درمیان مینکوزیب یعنی ڈائیتھین ایم پینتالیس دوائی چھ سو گرام ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں۔ اللہ آپ کی فصل میں برکت ڈالے!'
+            : `السلام علیکم کسان بھائی! آپ کے ٹماٹر کے پودے کے نچلے پتوں پر جھلساؤ یعنی ارلی بلائیٹ کی بیماری ہے۔ اس وقت مردان میں موسم صاف ہے اور درجہ حرارت ${weather.temperature} ڈگری ہے، اس لیے آپ صبح سات بجے سے دس بجے کے درمیان مینکوزیب یعنی ڈائیتھین ایم پینتالیس دوائی چھ سو گرام ایک سو لیٹر پانی میں ملا کر ایک ایکڑ پر اسپرے کریں۔ اللہ آپ کی فصل میں خوب برکت ڈالے!`,
         },
         ps: {
           cropName: 'ټماټر',
           disease: 'د ټماټرو د پاڼو سوځېدل (ارلي بلایټ بیماري)',
-          action: 'نن د باران امکان شته، نو نن بالکل سپرے مه کوئ! سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د مینکوزیب دوایۍ سپرے وکړئ.',
-          bestTime: 'سبا سهار د ۷ نه تر ۱۰ بجو پورې',
-          whySummary: 'د بوټي په لاندې پاڼو نصواري داغونه او ژیړوالی دی. نن باران دوایي وینځي او ستاسو پیسې ضایع کوي، نو سبا سهار سپرے وکړئ.',
+          action: rainRisk
+            ? 'نن د باران امکان شته، نو نن بالکل سپرے مه کوئ! سبا سهار د ۷ بجو نه تر ۱۰ بجو پورې د مینکوزیب دوایۍ سپرے وکړئ.'
+            : 'سهار د ۷ بجو نه تر ۱۰ بجو پورې چې هوا ارامه وي د مینکوزیب (ډایتین ایم-۴۵) دوایۍ سپرے وکړئ.',
+          bestTime: rainRisk ? 'سبا سهار د ۷ نه تر ۱۰ بجو پورې' : 'سهار د ۷:۰۰ نه تر ۱۰:۰۰ بجو پورې (موسم ښه دی)',
+          whySummary: rainRisk
+            ? 'د بوټي په لاندې پاڼو نصواري داغونه دي. نن باران دوایي وینځي، نو سبا سهار سپرے وکړئ.'
+            : 'د بوټي په لاندې پاڼو نصواري داغونه دي. موسم د سپرے لپاره ښه دی، سهار د ۷ نه تر ۱۰ بجو سپرے وکړئ.',
           whyPoints: [
             'په لاندې پاڼو باندې نصواري داغونه او ژیړوالی ښکاري',
-            'نن د باران د وجې نه سپرے مه کوئ ګنې باران به دوایي ووینځي او پیسې به مو ضایع شي',
-            'سبا سهار د ۷ نه تر ۱۰ بجو پورې هوا ارامه وي او دوایي به پوره اثر وکړي',
+            rainRisk
+              ? 'نن د باران د وجې نه سپرے مه کوئ ګنې باران به دوایي ووینځي'
+              : `اوس په ${district} کې ګرمي ${weather.temperature}°C او باد ${weather.windSpeed} km/h دی چې د سپرے لپاره ښه دی`,
+            'سهار د ۷ نه تر ۱۰ بجو پورې دوایي په پاڼو پوره اثر کوي',
           ],
           medicineName: 'مینکوزیب دوایي (ډایتین ایم-۴۵)',
           dosageText: 'د یو ایکړ لپاره له ۶۰۰ نه تر ۸۰۰ ګرامه دوایي په ۱۰۰ لیټره اوبو کې مکس کړئ او سپرے وکړئ',
           safetyText: 'د سپرے کولو په وخت خپله خوله او پوزه په صافه کپړه وتړئ او د ټماټرو شکولو نه ۷ ورځې مخکې سپرے بند کړئ',
-          voiceScript:
-            'السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د ټماټرو پاڼه په غور سره وکتله. د فکر هیڅ خبره نشته، ستاسو د ټماټرو په لاندې پاڼو باندې د بلایټ یعنې د پاڼو د سوځېدو بیماري لګېدلې ده. زما خبره په غور واورئ: نن په مردان کې د باران امکان شته، نو نن بالکل سپرے مه کوئ، ګنې باران به دوایي ووینځي او ستاسو پیسې او محنت به ضایع شي. تاسو سبا سهار د اوو بجو نه تر لسو بجو پورې، کله چې پاڼې وچې وي، د مینکوزیب دوایي شپږ سوه ګرامه په سلو لیټرو اوبو کې مکس کړئ او په پټي باندې سپرے وکړئ. لاندې خرابې پاڼې وشکوئ او په خاوره کې یې ښخې کړئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!',
+          voiceScript: rainRisk
+            ? 'السلام علیکم زما خوږه زمینداره وروره! ستاسو د ټماټرو په لاندې پاڼو باندې د بلایټ بیماري ده. نن د باران امکان شته نو نن سپرے مه کوئ. سبا سهار د اوو نه تر لسو بجو پورې د مینکوزیب دوایي شپږ سوه ګرامه په سلو لیټرو اوبو کې مکس کړئ او سپرے وکړئ. الله پاک دې ستاسو په فصل کې برکت واچوي!'
+            : `السلام علیکم زما خوږه زمینداره وروره! ستاسو د ټماټرو په لاندې پاڼو باندې د بلایټ بیماري ده. اوس په مردان کې موسم ښه دی او تودوخه ${weather.temperature} درجې ده، نو سهار د اوو بجو نه تر لسو بجو پورې د مینکوزیب دوایي شپږ سوه ګرامه په سلو لیټرو اوبو کې مکس کړئ او په پټي باندې سپرے وکړئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!`,
         },
       },
     };

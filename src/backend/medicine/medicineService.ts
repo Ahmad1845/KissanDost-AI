@@ -6,6 +6,10 @@ export interface LocalizedMedicineGuidance {
   reason: string;
   dosage: string;
   safety: string;
+  howToUse?: string;
+  whenToSpray?: string;
+  whenToRecheck?: string;
+  targetSummary?: string;
   voiceScript: string;
 }
 
@@ -70,6 +74,16 @@ export interface SmartSprayCompatibility {
     en: string[];
     ur: string[];
     ps: string[];
+  };
+  targetCrops?: string[];
+  targetDiseases?: string[];
+  recommendedAlternative?: {
+    brandName: string;
+    activeIngredient: string;
+    dosagePer15LTank: string;
+    dosagePerAcre: string;
+    dosageUr?: string;
+    dosagePs?: string;
   };
 }
 
@@ -261,8 +275,17 @@ export const BOTTLE_BARCODE_CATALOG: CatalogBottleRecord[] = [
       'Authentic embossed batch code DTH-2602-KP',
       'Official KP Agriculture Extension registered broad-spectrum protectant',
     ],
-    targetCrops: ['Tomato', 'Maize', 'Potato', 'Wheat', 'Onion'],
-    targetDiseases: ['Early Blight', 'Late Blight', 'Maize Leaf Blight', 'Leaf Spot', 'Northern Corn Leaf Blight'],
+    targetCrops: ['Tomato', 'Maize', 'Potato', 'Wheat', 'Onion', 'Chili'],
+    targetDiseases: [
+      'Early Blight',
+      'Late Blight',
+      'Maize Leaf Blight',
+      'Leaf Spot',
+      'Northern Corn Leaf Blight',
+      'Purple Blotch',
+      'Anthracnose',
+      'Leaf Rust',
+    ],
     dosagePerLiter: '2.5 grams / Liter',
     dosagePer15LTank: '37.5 grams in 15L water (2.5 tablespoons)',
     dosagePerAcre: '600 to 800 grams in 100L water per Acre',
@@ -306,7 +329,7 @@ export const BOTTLE_BARCODE_CATALOG: CatalogBottleRecord[] = [
   },
   {
     id: 'tilt-250-ec',
-    keywords: ['tilt', 'propiconazole', '8964009988776'],
+    keywords: ['tilt', 'tilt250ec', 'propiconazole', 'propiconazol', '8964009988776'],
     barcode: '8964009988776',
     brandName: 'Tilt 250 EC',
     activeIngredient: 'Propiconazole 25% EC',
@@ -321,9 +344,9 @@ export const BOTTLE_BARCODE_CATALOG: CatalogBottleRecord[] = [
       'Authentic Syngenta bottle cap seal & PARC wheat rust registration',
     ],
     targetCrops: ['Wheat', 'Barley'],
-    targetDiseases: ['Yellow Stripe Rust', 'Stripe Rust', 'Yellow Rust', 'Brown Rust'],
+    targetDiseases: ['Yellow Stripe Rust', 'Stripe Rust', 'Yellow Rust', 'Brown Rust', 'Leaf Rust', 'Powdery Mildew'],
     dosagePerLiter: '1.5 ml / Liter',
-    dosagePer15LTank: '25 ml in 15L water',
+    dosagePer15LTank: '25 ml in 15L water (2 tablespoons)',
     dosagePerAcre: '200 ml in 100L water per Acre',
     repeatAfterDays: 14,
     phiDays: 28,
@@ -453,6 +476,35 @@ export const BOTTLE_BARCODE_CATALOG: CatalogBottleRecord[] = [
     fracGroup: 'HRAC Group 22 (Bipyridylium Herbicide)',
     formulationType: 'SL',
   },
+  {
+    id: 'copper-oxychloride-50-wp',
+    keywords: ['copper', 'oxychloride', 'cobx', '8964002211009'],
+    barcode: '8964002211009',
+    brandName: 'Copper Oxychloride 50% WP',
+    activeIngredient: 'Copper Oxychloride 50% WP',
+    company: 'Swat Agro / Syngenta Pakistan',
+    registrationNumber: 'PAK-DPP-05412-B',
+    manufacturingDate: '2026-01',
+    expiryDate: '2028-01',
+    batchNumber: 'COX-2601-KP',
+    qrDetected: true,
+    isGenuine: true,
+    counterfeitSignals: [
+      'Verified Copper Oxychloride bactericide & fungicide registration',
+    ],
+    targetCrops: ['Cotton', 'Chili', 'Onion', 'Tomato', 'Potato'],
+    targetDiseases: ['Cotton Bacterial Blight', 'Bacterial Blight', 'Anthracnose', 'Purple Blotch', 'Early Blight'],
+    dosagePerLiter: '3 grams / Liter',
+    dosagePer15LTank: '45 grams in 15L water (3 tablespoons)',
+    dosagePerAcre: '500 grams in 100L water per Acre',
+    repeatAfterDays: 10,
+    phiDays: 7,
+    estimatedPricePkr: 1100,
+    effectiveness: 'High',
+    toxicityLevel: 'Low',
+    fracGroup: 'FRAC Group M01 (Copper Bactericide/Fungicide)',
+    formulationType: 'WP',
+  },
 ];
 
 export class MedicineVerificationService {
@@ -495,17 +547,25 @@ export class MedicineVerificationService {
     },
   ];
 
-  findCatalogRecord(queryOrBarcode: string): CatalogBottleRecord {
+  findCatalogRecordStrict(queryOrBarcode: string): CatalogBottleRecord | null {
     const q = (queryOrBarcode || '').toLowerCase().trim();
-    const matched = BOTTLE_BARCODE_CATALOG.find(
-      (item) =>
-        item.barcode === q ||
-        item.id === q ||
-        item.brandName.toLowerCase().includes(q) ||
-        item.activeIngredient.toLowerCase().includes(q) ||
-        item.keywords.some((k) => q.includes(k))
+    if (!q) return null;
+    const qNorm = q.replace(/[^a-z0-9]/g, '');
+    return (
+      BOTTLE_BARCODE_CATALOG.find(
+        (item) =>
+          item.barcode === q ||
+          item.id === q ||
+          item.brandName.toLowerCase().includes(q) ||
+          (qNorm.length >= 4 && item.brandName.toLowerCase().replace(/[^a-z0-9]/g, '').includes(qNorm)) ||
+          item.activeIngredient.toLowerCase().includes(q) ||
+          item.keywords.some((k) => q.includes(k) || qNorm.includes(k.replace(/[^a-z0-9]/g, '')))
+      ) || null
     );
-    return matched || BOTTLE_BARCODE_CATALOG[0];
+  }
+
+  findCatalogRecord(queryOrBarcode: string): CatalogBottleRecord {
+    return this.findCatalogRecordStrict(queryOrBarcode) || BOTTLE_BARCODE_CATALOG[0];
   }
 
   /**
@@ -560,10 +620,17 @@ export class MedicineVerificationService {
   analyzeBottleScan(params: {
     queryOrBottleId?: string;
     barcode?: string;
+    hasUploadedImage?: boolean;
     ocrOverride?: Partial<BottleOcrExtraction> & {
       isGenuineOverride?: boolean;
       counterfeitSignalsOverride?: string[];
       imageQualityPoor?: boolean;
+      productType?: 'fungicide' | 'herbicide' | 'insecticide' | 'bactericide' | 'unknown';
+      targetCrops?: string[];
+      targetDiseases?: string[];
+      dosagePerLiter?: string;
+      dosagePer15LTank?: string;
+      dosagePerAcre?: string;
     };
     crop: string;
     disease: string;
@@ -571,14 +638,58 @@ export class MedicineVerificationService {
     previousSpray?: string;
     weather: DistrictWeatherSnapshot;
   }): BottleScanAnalysisResponse {
-    const lookupKey =
-      params.barcode ||
-      params.ocrOverride?.brandName ||
-      params.queryOrBottleId ||
-      'Aliette 80 WG';
-    const record = this.findCatalogRecord(lookupKey);
+    const matchedRecord =
+      (params.barcode ? this.findCatalogRecordStrict(params.barcode) : null) ||
+      (params.ocrOverride?.brandName
+        ? this.findCatalogRecordStrict(params.ocrOverride.brandName)
+        : null) ||
+      (params.ocrOverride?.activeIngredient
+        ? this.findCatalogRecordStrict(params.ocrOverride.activeIngredient)
+        : null) ||
+      (params.queryOrBottleId ? this.findCatalogRecordStrict(params.queryOrBottleId) : null);
 
-    const imageQualityPoor = Boolean(params.ocrOverride?.imageQualityPoor);
+    // Build dynamic record if OCR recognized a real product NOT in our 9-item catalog,
+    // OR if an uploaded image could not be read at all (never silently pretend it's Aliette!).
+    const fallbackUnreadableRecord: CatalogBottleRecord = {
+      id: 'unreadable-bottle',
+      keywords: [],
+      barcode: params.barcode || 'UNKNOWN',
+      brandName: params.ocrOverride?.brandName || 'Unrecognized Bottle Photo',
+      activeIngredient: params.ocrOverride?.activeIngredient || 'Not readable from photo',
+      company: params.ocrOverride?.company || 'Unknown',
+      registrationNumber: params.ocrOverride?.registrationNumber || 'UNVERIFIED',
+      manufacturingDate: params.ocrOverride?.manufacturingDate || '2026-01',
+      expiryDate: params.ocrOverride?.expiryDate || '2027-01',
+      batchNumber: params.ocrOverride?.batchNumber || 'N/A',
+      qrDetected: Boolean(params.ocrOverride?.qrDetected),
+      isGenuine: params.ocrOverride?.brandName ? (params.ocrOverride.isGenuineOverride ?? true) : false,
+      isBanned: params.ocrOverride?.productType === 'herbicide',
+      counterfeitSignals:
+        params.ocrOverride?.counterfeitSignalsOverride || ['Could not clearly read label text from image'],
+      targetCrops: params.ocrOverride?.targetCrops || [],
+      targetDiseases: params.ocrOverride?.targetDiseases || [],
+      dosagePerLiter: params.ocrOverride?.dosagePerLiter || 'Check bottle label',
+      dosagePer15LTank: params.ocrOverride?.dosagePer15LTank || 'Follow label dosage',
+      dosagePerAcre: params.ocrOverride?.dosagePerAcre || 'Follow label dosage',
+      repeatAfterDays: 7,
+      phiDays: 7,
+      estimatedPricePkr: 0,
+      effectiveness: 'Medium',
+      toxicityLevel: params.ocrOverride?.productType === 'herbicide' ? 'High' : 'Low',
+      fracGroup: 'Extracted from Label',
+      formulationType: 'EC',
+    };
+
+    const record: CatalogBottleRecord = matchedRecord
+      ? matchedRecord
+      : params.hasUploadedImage || params.ocrOverride?.brandName
+      ? fallbackUnreadableRecord
+      : BOTTLE_BARCODE_CATALOG[0];
+
+    const imageQualityPoor = Boolean(
+      params.ocrOverride?.imageQualityPoor ||
+        (params.hasUploadedImage && !matchedRecord && !params.ocrOverride?.brandName)
+    );
 
     const extracted: BottleOcrExtraction = {
       brandName: params.ocrOverride?.brandName || record.brandName,
@@ -642,11 +753,17 @@ export class MedicineVerificationService {
     const suitableForCrop = record.targetCrops.some(
       (c) => c.toLowerCase() === cropNorm.toLowerCase()
     );
-    const suitableForDisease = record.targetDiseases.some(
-      (d) =>
-        diseaseNorm.toLowerCase().includes(d.toLowerCase()) ||
-        d.toLowerCase().includes(diseaseNorm.toLowerCase())
-    );
+    const diseaseLower = diseaseNorm.toLowerCase();
+    const suitableForDisease = record.targetDiseases.some((d) => {
+      const dl = d.toLowerCase();
+      return (
+        diseaseLower.includes(dl) ||
+        dl.includes(diseaseLower) ||
+        (diseaseLower.includes('rust') && dl.includes('rust')) ||
+        (diseaseLower.includes('blight') && dl.includes('blight')) ||
+        (diseaseLower.includes('spot') && dl.includes('spot'))
+      );
+    });
 
     const samePreviousChemical =
       previousSpray !== 'None' &&
@@ -737,6 +854,27 @@ export class MedicineVerificationService {
       },
     };
 
+    // Determine the best alternative medicine from catalog for this crop/disease
+    const altRecord =
+      BOTTLE_BARCODE_CATALOG.find(
+        (item) =>
+          item.isGenuine &&
+          !item.isBanned &&
+          item.targetCrops.some((c) => c.toLowerCase() === cropNorm.toLowerCase()) &&
+          item.targetDiseases.some(
+            (d) =>
+              diseaseNorm.toLowerCase().includes(d.toLowerCase()) ||
+              d.toLowerCase().includes(diseaseNorm.toLowerCase())
+          )
+      ) ||
+      BOTTLE_BARCODE_CATALOG.find(
+        (item) =>
+          item.isGenuine &&
+          !item.isBanned &&
+          item.targetCrops.some((c) => c.toLowerCase() === cropNorm.toLowerCase())
+      ) ||
+      BOTTLE_BARCODE_CATALOG[1]; // Dithane M-45 default
+
     // Build rich localized summary + killer Urdu & Mardan Pashto voice scripts
     let urVoice = '';
     let psVoice = '';
@@ -747,62 +885,182 @@ export class MedicineVerificationService {
     let psReason = '';
     let enReason = '';
 
-    const cropUr = cropNorm === 'Tomato' ? 'ٹماٹر' : cropNorm === 'Wheat' ? 'گندم' : 'مکئی';
-    const cropPs = cropNorm === 'Tomato' ? 'ټماټر' : cropNorm === 'Wheat' ? 'غنم' : 'جوار';
+    const cropUrMap: Record<string, string> = {
+      Tomato: 'ٹماٹر',
+      Wheat: 'گندم',
+      Maize: 'مکئی',
+      Potato: 'آلو',
+      Cotton: 'کپاس',
+      Chili: 'مرچ',
+      Onion: 'پیاز',
+      Barley: 'جو',
+      Cucumber: 'کھیرا',
+      Citrus: 'مالٹا/کینو',
+      Apple: 'سیب',
+    };
+    const cropPsMap: Record<string, string> = {
+      Tomato: 'ټماټر',
+      Wheat: 'غنم',
+      Maize: 'جوار',
+      Potato: 'الوګان',
+      Cotton: 'پمبه (کپاس)',
+      Chili: 'مرچک',
+      Onion: 'پیاز',
+      Barley: 'اوربشې',
+      Cucumber: 'بادرنګ',
+      Citrus: 'مالټه',
+      Apple: 'مڼه',
+    };
+    const diseaseUrMap: Record<string, string> = {
+      'Early Blight': 'پتوں کا جھلساؤ (ارلی بلائیٹ)',
+      'Late Blight': 'پچھیتا جھلساؤ (لیٹ بلائیٹ)',
+      'Downy Mildew': 'روئیں دار پھپھوندی (ڈاؤنی ملڈیو)',
+      'Root Rot': 'جڑ کی سڑن',
+      'Maize Leaf Blight': 'مکئی کے پتوں کا جھلساؤ',
+      'Leaf Spot': 'پتوں کے دھبے',
+      'Northern Corn Leaf Blight': 'مکئی کا جھلساؤ',
+      'Purple Blotch': 'جامنی دھبوں کی بیماری',
+      Anthracnose: 'انتھراکنوز (داغ)',
+      'Leaf Rust': 'پتوں کی کنگی (رسٹ)',
+      'Yellow Stripe Rust': 'پیلی کنگی (زرد رسٹ)',
+      'Stripe Rust': 'پیلی کنگی',
+      'Yellow Rust': 'پیلی کنگی',
+      'Brown Rust': 'بھوری کنگی',
+      'Powdery Mildew': 'سفید پاؤڈر کی بیماری',
+      'Cotton Bacterial Blight': 'کپاس کا بیکٹیریل جھلساؤ',
+      'Bacterial Blight': 'بیکٹیریل جھلساؤ',
+      'Fruit Borer': 'پھل کی سنڈی',
+      Armyworm: 'لشکری سنڈی',
+      Aphids: 'تیلہ',
+    };
+    const cropUr = cropUrMap[cropNorm] || cropNorm;
+    const cropPs = cropPsMap[cropNorm] || cropNorm;
+
+    const targetCropsUrList = Array.from(
+      new Set(record.targetCrops.map((c) => cropUrMap[c] || c))
+    ).join('، ');
+    const targetCropsPsList = Array.from(
+      new Set(record.targetCrops.map((c) => cropPsMap[c] || c))
+    ).join('، ');
+    const targetDiseasesUrList = Array.from(
+      new Set(record.targetDiseases.map((d) => diseaseUrMap[d] || d))
+    )
+      .slice(0, 3)
+      .join('، ');
+
+    const isLiquid = record.formulationType === 'EC' || record.formulationType === 'SL';
+    const perTankSimpleUr = isLiquid
+      ? record.id === 'tilt-250-ec'
+        ? '15 لیٹر کی ٹینکی میں 25 ملی لیٹر (تقریباً 2 کھانے کے چمچ) اور فی ایکڑ 200 ملی لیٹر 100 لیٹر پانی میں ملا کر اسپرے کریں۔'
+        : '15 لیٹر کی ٹینکی میں 20 ملی لیٹر (ڈیڑھ سے 2 چمچ) اور فی ایکڑ 150 ملی لیٹر 100 لیٹر پانی میں ملا کر اسپرے کریں۔'
+      : record.id === 'copper-oxychloride-50-wp'
+      ? '15 لیٹر کی ٹینکی میں 45 گرام (3 کھانے کے چمچ) اور فی ایکڑ 500 گرام 100 لیٹر پانی میں گھول کر اسپرے کریں۔'
+      : record.id === 'aliette-80-wg'
+      ? '15 لیٹر کی ٹینکی میں 30 گرام (2 کھانے کے چمچ) اور فی ایکڑ 500 گرام 100 لیٹر پانی میں ملا کر اسپرے کریں۔'
+      : '15 لیٹر کی ٹینکی میں 37.5 گرام (ڈھائی کھانے کے چمچ) اور فی ایکڑ 600 سے 800 گرام 100 لیٹر پانی میں ملا کر اسپرے کریں۔';
+
+    const perTankSimplePs = isLiquid
+      ? `د ۱۵ لیټرو په ټینکۍ کې ${record.id === 'tilt-250-ec' ? '۲۵ ملی لیټره (۲ کاشوغې)' : '۲۰ ملی لیټره'} او په یو ایکړ کې په ۱۰۰ لیټرو اوبو کې مکس کړئ.`
+      : `د ۱۵ لیټرو په ټینکۍ کې ${record.id === 'copper-oxychloride-50-wp' ? '۴۵ ګرامه (۳ کاشوغې)' : '۳۰ نه تر ۳۷.۵ ګرامه (۲ نه تر ۲.۵ کاشوغې)'} دوایي په اوبو کې مکس او سپرے کړئ.`;
+
+    const howToUseUr = `${perTankSimpleUr} اسپرے کرتے وقت منہ اور ناک پر صاف کپڑا باندھیں اور ہاتھوں میں دستانے پہنیں۔ پتوں کے اوپر اور نیچے دونوں طرف اچھی طرح اسپرے کریں۔`;
+    const howToUsePs = `${perTankSimplePs} د سپرے په وخت خوله او پوزه په صافه کپړه وتړئ او د پاڼو دواړو خواوو ته یې ښه ووهئ.`;
+    const howToUseEn = `Mix ${record.dosagePer15LTank} (${record.dosagePerAcre}). Wear gloves and cover your nose and mouth while spraying both sides of leaves.`;
+
+    const whenToSprayUr = rainRisk
+      ? `آج ${params.weather.district} میں بارش کا امکان (${params.weather.rainProbability}%) ہے — آج ہرگز اسپرے نہ کریں! کل صبح 7 سے 10 بجے کے درمیان جب پتوں سے اوس (شبنم) خشک ہو جائے تب اسپرے کریں۔`
+      : highWind
+      ? `آج ہوا تیز ہے (${params.weather.windSpeed} km/h) — ابھی اسپرے نہ کریں، کل صبح کم ہوا میں صبح 7 سے 10 بجے اسپرے کریں۔`
+      : `آج موسم صاف ہے (${params.weather.temperature}°C) — صبح 7 سے 10 بجے (یا شام کو دھوپ کم ہونے پر) جب پتوں پر شبنم نہ ہو اور ہوا ہلکی ہو تب اسپرے کریں۔`;
+
+    const whenToSprayPs = rainRisk
+      ? `نن په ${params.weather.district} کې د باران امکان شته — نن سپرے مه کوئ! سبا سهار د ۷ نه تر ۱۰ بجو پورې چې پرخه وچه شي سپرے وکړئ.`
+      : `سبا یا نن سهار د ۷ نه تر ۱۰ بجو پورې په ارامه هوا کې کله چې پرخه وچه وي سپرے وکړئ.`;
+
+    const whenToSprayEn = weatherVerdictEn;
+
+    const whenToRecheckUr = `${record.repeatAfterDays} دن بعد اپنے کھیت میں جا کر دوبارہ پتے چیک کریں۔ اگر بیماری کے نئے دھبے نظر آئیں تو ${record.repeatAfterDays} دن کے وقفے سے ایک بار پھر اسپرے کریں۔ اسپرے کے بعد ${record.phiDays} دن تک فصل یا پھل نہ توڑیں۔`;
+    const whenToRecheckPs = `له ${record.repeatAfterDays} ورځو وروسته پټي ته لاړ شئ او پاڼې بیا وګورئ. که ناروغي پاتې وي نو یو ځل بیا سپرے وکړئ. تر ${record.phiDays} ورځو پورې فصل مه شکوئ.`;
+    const whenToRecheckEn = `Inspect the crop again after ${record.repeatAfterDays} days. Repeat spray if new spots appear. Wait ${record.phiDays} days before harvesting.`;
+
+    const targetSummaryUr = record.isBanned
+      ? 'اصل میں یہ فصل کی بیماری کی دوائی نہیں بلکہ جڑی بوٹیاں (گھاس) جلانے والا زہر ہے — اسے کسی بھی کھڑی فصل پر ہرگز اسپرے نہ کریں۔'
+      : !authenticity.isGenuine
+      ? 'یہ بوتل نقلی یا تاریخ ختم شدہ ہے، اس لیے یہ کسی بھی فصل یا کام میں استعمال کے قابل نہیں ہے۔'
+      : record.targetCrops.length > 0
+      ? `اصل میں یہ دوائی ${targetCropsUrList} کی فصلوں پر ${targetDiseasesUrList} کے خاتمے کے لیے استعمال ہوتی ہے۔`
+      : 'یہ دوائی فصل کے پتوں کی بیماریوں کے لیے نہیں ہے۔';
+    const targetSummaryPs = record.isBanned
+      ? 'دا په اصل کې د فصل د بیمارۍ دوایي نه ده بلکه د وښو او زیانمنو بوټو سوځولو زهر دی — په ولاړ فصل یې بالکل مه وهئ.'
+      : !authenticity.isGenuine
+      ? 'دا بوتل نقلي یا تاریخ تېر دی، د هیڅ فصل لپاره د استعمال وړ نه دی.'
+      : record.targetCrops.length > 0
+      ? `دا دوایي په اصل کې د ${targetCropsPsList} فصلونو د ${record.targetDiseases.slice(0, 3).join(', ')} لپاره استعمالیږي.`
+      : 'دا دوایي د فصل د پاڼو د بیمارۍ لپاره نه ده.';
+    const targetSummaryEn = record.isBanned
+      ? 'This is a non-selective weed killer (herbicide) used only to burn weeds/grass — NEVER spray it on living crops.'
+      : !authenticity.isGenuine
+      ? 'Counterfeit or expired product — not safe for any crop.'
+      : record.targetCrops.length > 0
+      ? `Actual use: Used on ${record.targetCrops.join(', ')} to treat ${record.targetDiseases.slice(0, 3).join(', ')}.`
+      : 'Not intended for foliar crop diseases.';
+
+    const altDosageUr =
+      altRecord.id === 'tilt-250-ec'
+        ? '15 لیٹر ٹینکی میں 25 ملی لیٹر (2 چمچ) — فی ایکڑ 200 ملی لیٹر'
+        : altRecord.id === 'copper-oxychloride-50-wp'
+        ? '15 لیٹر ٹینکی میں 45 گرام (3 چمچ) — فی ایکڑ 500 گرام'
+        : altRecord.id === 'aliette-80-wg'
+        ? '15 لیٹر ٹینکی میں 30 گرام (2 چمچ) — فی ایکڑ 500 گرام'
+        : '15 لیٹر ٹینکی میں 37.5 گرام (ڈھائی چمچ) — فی ایکڑ 600 سے 800 گرام';
+
+    const altDosagePs =
+      altRecord.id === 'tilt-250-ec'
+        ? 'د ۱۵ لیټرو په ټینکۍ کې ۲۵ ملی لیټره (۲ کاشوغې)'
+        : altRecord.id === 'copper-oxychloride-50-wp'
+        ? 'د ۱۵ لیټرو په ټینکۍ کې ۴۵ ګرامه (۳ کاشوغې)'
+        : 'د ۱۵ لیټرو په ټینکۍ کې ۳۰ نه تر ۳۷.۵ ګرامه (۲ نه تر ۲.۵ کاشوغې)';
 
     if (!authenticity.isGenuine) {
       urTitle = record.isBanned
-        ? 'خبردار! یہ خطرناک زہر ہے — فصل پر ہرگز نہ ڈالیں'
-        : 'خبردار! یہ بوتل مشکوک یا زائد المیعاد (Expired) ہے';
+        ? `خبردار! یہ جڑی بوٹی مار زہر ہے — ${cropUr} کے لیے ہرگز ٹھیک نہیں ہے`
+        : `خبردار! یہ بوتل نقلی یا زائد المیعاد ہے — ${cropUr} کے لیے ٹھیک نہیں`;
       psTitle = record.isBanned
-        ? 'خبردار! دا خطرناک زهر دي — په فصل یې بالکل مه سپرے کوئ'
-        : 'خبردار! دا بوتل نقلي یا تاریخ تېر (Expired) دی';
+        ? `خبردار! دا د وښو سوځولو زهر دی — د ${cropPs} لپاره بالکل سم نه دی`
+        : `خبردار! دا بوتل نقلي یا تاریخ تېر دی — د ${cropPs} لپاره سم نه دی`;
       enTitle = record.isBanned
-        ? 'DANGER: Banned / Herbicide Poison'
-        : 'Suspicious or Expired Product — Do Not Use';
+        ? `DANGER: Weed Killer (Herbicide) — Not Suitable for ${cropNorm}`
+        : `Suspicious or Expired Product — Not Suitable for ${cropNorm}`;
 
-      urReason = `${authenticity.dealerAdviceUr} ${expiryInfo.expiryLabelUr}۔`;
-      psReason = `${authenticity.dealerAdvicePs} ${expiryInfo.expiryLabelPs}۔`;
-      enReason = `${authenticity.dealerAdviceEn} ${expiryInfo.expiryLabelEn}.`;
+      urReason = `اس بوتل کو اپنی ${cropUr} پر بالکل استعمال نہ کریں۔ اس کی جگہ ${altRecord.brandName} لیں۔`;
+      psReason = `دا بوتل په خپل ${cropPs} باندې بالکل مه استعمالوئ. د دې پر ځای ${altRecord.brandName} واخلئ.`;
+      enReason = `Do NOT use this on ${cropNorm}. Use ${altRecord.brandName} instead.`;
 
-      urVoice = `السلام علیکم کسان بھائی! غور سے سنیں: اس بوتل پر ${extracted.brandName} لکھا ہے لیکن یہ بوتل مشکوک یا تاریخ ختم شدہ ہے۔ ${expiryInfo.expiryLabelUr}۔ براہ کرم یہ دوائی اپنی ${cropUr} کی فصل پر ہرگز اسپرے نہ کریں اور صرف منظور شدہ ڈیلر سے اصلی دوائی خریدیں۔`;
-      psVoice = `السلام علیکم زما خوږه زمینداره وروره! زما خبره په غور واوره: دا بوتل مشکوک یا تاریخ تېر دی. ${expiryInfo.expiryLabelPs}. دا دوایي په خپل ${cropPs} باندې بالکل سپرے مه کوه، ګنې فصل به دې خراب شي. صرف له منظور شوي دوکاندار نه اصلي دوایي واخله.`;
+      urVoice = `السلام علیکم کسان بھائی! غور سے سنیں: یہ بوتل ${extracted.brandName} آپ کی ${cropUr} کی فصل کے لیے ہرگز ٹھیک نہیں ہے۔ ${targetSummaryUr} آپ اپنی فصل کے لیے اس کی جگہ ${altRecord.brandName} استعمال کریں۔`;
+      psVoice = `السلام علیکم زما خوږه زمینداره وروره! دا بوتل ${extracted.brandName} ستاسو د ${cropPs} لپاره بالکل سم نه دی. ${targetSummaryPs} تاسو د خپل فصل لپاره د دې پر ځای ${altRecord.brandName} واخلئ.`;
     } else if (!suitableForCrop || !suitableForDisease) {
-      urTitle = `یہ دوائی اصلی ہے، مگر ${cropUr} کی اس بیماری کے لیے نہیں ہے`;
-      psTitle = `دا دوایي اصلي ده، خو د ${cropPs} د دې بیمارۍ لپاره نه ده`;
-      enTitle = `Genuine Bottle, But Not Suitable for ${cropNorm} (${diseaseNorm})`;
+      urTitle = `یہ دوائی ${cropUr} کی اس بیماری کے لیے ٹھیک نہیں ہے`;
+      psTitle = `دا دوایي د ${cropPs} د دې بیمارۍ لپاره سمه نه ده`;
+      enTitle = `Not Suitable for ${cropNorm} (${diseaseNorm})`;
 
-      urReason = `${extracted.brandName} اصلی ہے، لیکن یہ ${record.targetCrops.join(', ')} (${record.targetDiseases.join(', ')}) کے لیے ہے۔ اسے ${cropUr} کے اس مسئلے پر اسپرے کرنے سے پیسے ضائع ہوں گے۔`;
-      psReason = `${extracted.brandName} اصلي دوایي ده، خو دا د ${cropPs} د دې بیمارۍ لپاره کار نه کوي. په دې خپلې پیسې مه ضایع کوئ.`;
-      enReason = `${extracted.brandName} is genuine, but formulated for ${record.targetDiseases.join(', ')} on ${record.targetCrops.join(', ')}. Using it on ${cropNorm} for ${diseaseNorm} will waste your money.`;
+      urReason = `${extracted.brandName} آپ کی ${cropUr} کی اس بیماری پر کام نہیں کرے گی۔ آپ اس کی جگہ ${altRecord.brandName} استعمال کریں۔`;
+      psReason = `${extracted.brandName} ستاسو د ${cropPs} د دې بیمارۍ لپاره کار نه کوي. د دې پر ځای ${altRecord.brandName} واخلئ.`;
+      enReason = `${extracted.brandName} will not treat ${diseaseNorm} on ${cropNorm}. Get ${altRecord.brandName} instead.`;
 
-      urVoice = `السلام علیکم کسان بھائی! یہ بوتل ${extracted.brandName} بالکل اصلی ہے، لیکن یہ دوائی ${cropUr} کی اس بیماری کے لیے موزوں نہیں ہے۔ اس پر اپنے پیسے ضائع نہ کریں بلکہ اس کی جگہ ایلیٹ یا مینکوزیب دوائی استعمال کریں۔`;
-      psVoice = `السلام علیکم زما خوږه زمینداره وروره! دا د ${extracted.brandName} بوتل اصلي دی، خو دا دوایي د ${cropPs} د دې بیمارۍ لپاره کار نه کوي. په دې خپلې پیسې مه ضایع کوه، د دې پر ځای ایلیټ یا مینکوزیب دوایي سپرے کړه.`;
+      urVoice = `السلام علیکم کسان بھائی! یہ بوتل ${extracted.brandName} آپ کی ${cropUr} کی اس بیماری کے لیے ٹھیک نہیں ہے۔ ${targetSummaryUr} آپ اس کی جگہ ${altRecord.brandName} دوائی لیں۔`;
+      psVoice = `السلام علیکم زما خوږه زمینداره وروره! دا بوتل ${extracted.brandName} ستاسو د ${cropPs} د دې بیمارۍ لپاره سم نه دی. ${targetSummaryPs} تاسو د دې پر ځای ${altRecord.brandName} دوایي واخلئ.`;
     } else {
-      urTitle = `یہ دوائی ${cropUr} کے لیے بالکل مناسب اور اصلی ہے`;
-      psTitle = `دا دوایي د ${cropPs} لپاره بالکل مناسبه او اصلي ده`;
+      urTitle = `جی ہاں! یہ دوائی ${cropUr} کی بیماری کے لیے بالکل ٹھیک اور اصلی ہے`;
+      psTitle = `هو! دا دوایي د ${cropPs} د بیمارۍ لپاره بالکل سمه او اصلي ده`;
       enTitle = `Genuine & Suitable for ${cropNorm} (${diseaseNorm})`;
 
-      urReason = `${extracted.brandName} (${extracted.activeIngredient}) بالکل اصلی ہے اور ${cropUr} کی بیماری (${diseaseNorm}) کے لیے بہترین ہے۔ ${weatherVerdictUr}`;
-      psReason = `${extracted.brandName} (${extracted.activeIngredient}) بالکل اصلي دوایي ده او د ${cropPs} د بیمارۍ لپاره ډېره ښه ده. ${weatherVerdictPs}`;
-      enReason = `${extracted.brandName} (${extracted.activeIngredient}) is verified genuine and effective for ${diseaseNorm} on ${cropNorm}. ${weatherVerdictEn}`;
+      urReason = `خوشخبری! یہ دوائی (${extracted.brandName}) بالکل اصلی ہے اور آپ کی ${cropUr} کی فصل کے لیے بالکل ٹھیک ہے۔`;
+      psReason = `زېری! دا دوایي (${extracted.brandName}) بالکل اصلي ده او ستاسو د ${cropPs} فصل لپاره بالکل سمه ده.`;
+      enReason = `Good news! ${extracted.brandName} is genuine and right for your ${cropNorm} crop.`;
 
-      // Killer direct farmer voice output matching user prompt
-      urVoice = `السلام علیکم کسان بھائی! یہ دوائی ${extracted.brandName} بالکل اصلی ہے اور ${cropUr} کے لیے مناسب ہے۔ ${
-         record.dosagePerLiter.includes('2 ')
-          ? 'دو گرام ایک لیٹر پانی میں ملائیں، یعنی پندرہ لیٹر والی ٹینکی میں تیس گرام دوائی ڈالیں۔'
-          : `مقدار یاد رکھیں: ${record.dosagePer15LTank}۔`
-      } ${
-        rainRisk
-          ? 'آج بارش متوقع ہے، اس لیے آج اسپرے نہ کریں بلکہ کل صبح سات سے دس بجے اسپرے کریں۔'
-          : 'صبح کے وقت جب ہوا کم ہو تب اسپرے کریں اور سات دن بعد دوبارہ چیک کریں۔'
-      } اسپرے کرتے وقت دستانے پہنیں، جانوروں اور بچوں کو دور رکھیں، اور اسپرے کے ${record.phiDays} دن بعد تک فصل نہ توڑیں۔`;
+      urVoice = `السلام علیکم کسان بھائی! خوشخبری ہے: یہ دوائی ${extracted.brandName} بالکل اصلی ہے اور آپ کی ${cropUr} کی فصل کے لیے بالکل ٹھیک ہے۔ دینے کا طریقہ سمجھ لیں: ${howToUseUr} کب اسپرے کرنا ہے: ${whenToSprayUr} دوبارہ کب چیک کرنا ہے: ${whenToRecheckUr}`;
 
-      psVoice = `السلام علیکم زما خوږه زمینداره وروره! دا د ${extracted.brandName} دوایي بالکل اصلي ده او د ${cropPs} د بیمارۍ لپاره ډېره مناسبه ده. په یو لیټر اوبو کې دوه ګرامه یعنې د پنځلس لیټرو په ټینکۍ کې دیرش ګرامه دوایي مکس کړئ. ${
-        rainRisk
-          ? 'نن د باران امکان شته، نو نن سپرے مه کوئ او سبا سهار د اوو بجو نه تر لسو بجو پورې سپرے وکړئ.'
-          : 'سهار وختي په ارامه هوا کې سپرے وکړئ او اووه ورځې پس یې بیا وګورئ.'
-      } د سپرے په وخت دستکشې واغوندئ، ماشومان او مالداري لرې وساتئ، او تر ${record.phiDays} ورځو پورې حاصل مه شکوئ.`;
+      psVoice = `السلام علیکم زما خوږه زمینداره وروره! دا د ${extracted.brandName} دوایي بالکل اصلي ده او ستاسو د ${cropPs} د بیمارۍ لپاره ډېره مناسبه ده. د کارولو طریقه: ${howToUsePs} کله سپرے کول پکار دي: ${whenToSprayPs} بیا کله کتل پکار دي: ${whenToRecheckPs}`;
     }
 
     return {
@@ -812,28 +1070,52 @@ export class MedicineVerificationService {
       promptBarcodeFallback: imageQualityPoor,
       extracted,
       authenticity,
-      compatibility,
+      compatibility: {
+        ...compatibility,
+        targetCrops: record.targetCrops,
+        targetDiseases: record.targetDiseases,
+        recommendedAlternative: {
+          brandName: altRecord.brandName,
+          activeIngredient: altRecord.activeIngredient,
+          dosagePer15LTank: altRecord.dosagePer15LTank,
+          dosagePerAcre: altRecord.dosagePerAcre,
+          dosageUr: altDosageUr,
+          dosagePs: altDosagePs,
+        },
+      },
       localized: {
         ur: {
           statusTitle: urTitle,
           reason: urReason,
-          dosage: `${record.dosagePerLiter} (${record.dosagePer15LTank})`,
-          safety: `دستانے پہنیں • جانوروں اور بچوں کو دور رکھیں • PHI = ${record.phiDays} دن`,
+          dosage: `${perTankSimpleUr}`,
+          safety: `دستانے پہنیں، منہ ڈھانپیں اور اسپرے کے ${record.phiDays} دن بعد تک فصل نہ توڑیں۔`,
+          howToUse: howToUseUr,
+          whenToSpray: whenToSprayUr,
+          whenToRecheck: whenToRecheckUr,
+          targetSummary: targetSummaryUr,
           voiceScript: urVoice,
         },
         ps: {
           statusTitle: psTitle,
           reason: psReason,
-          dosage: `${record.dosagePerLiter} (${record.dosagePer15LTank})`,
-          safety: `دستکشې واغوندئ • ماشومان او مالداري لرې وساتئ • PHI = ${record.phiDays} ورځې`,
+          dosage: `${perTankSimplePs}`,
+          safety: `دستکشې واغوندئ، خوله وتړئ او تر ${record.phiDays} ورځو پورې فصل مه شکوئ.`,
+          howToUse: howToUsePs,
+          whenToSpray: whenToSprayPs,
+          whenToRecheck: whenToRecheckPs,
+          targetSummary: targetSummaryPs,
           voiceScript: psVoice,
         },
         en: {
           statusTitle: enTitle,
           reason: enReason,
           dosage: `${record.dosagePerLiter} • ${record.dosagePer15LTank}`,
-          safety: `Wear gloves • Keep animals & children away • PHI = ${record.phiDays} days`,
-          voiceScript: `${extracted.brandName} (${extracted.activeIngredient}) by ${extracted.company}. ${enTitle}. ${enReason} Mix ${record.dosagePerLiter} (${record.dosagePer15LTank}). Repeat after ${record.repeatAfterDays} days. Pre-harvest interval is ${record.phiDays} days.`,
+          safety: `Wear gloves • Keep animals & children away • Wait ${record.phiDays} days before harvest`,
+          howToUse: howToUseEn,
+          whenToSpray: whenToSprayEn,
+          whenToRecheck: whenToRecheckEn,
+          targetSummary: targetSummaryEn,
+          voiceScript: `${extracted.brandName}. ${enTitle}. ${howToUseEn} ${whenToSprayEn} ${whenToRecheckEn}`,
         },
       },
     };

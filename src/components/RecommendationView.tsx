@@ -1,4 +1,4 @@
-// KissanDost AI — 3-Step Farmer Recommendation & Voice Guidance View
+// KissanDost AI — Minimalist Farmer Recommendation & Local Language Voice View
 import React, { useState } from 'react';
 import {
   Volume2,
@@ -7,14 +7,10 @@ import {
   BookmarkCheck,
   CloudRain,
   Sun,
-  CheckCircle,
-  ThumbsUp,
-  ThumbsDown,
   FlaskConical,
-  PhoneCall,
   Loader2,
+  CheckCircle2,
   Sprout,
-  ShieldCheck,
 } from 'lucide-react';
 import { Language, RecommendationResult } from '../types';
 import { TRANSLATIONS } from '../data/translations';
@@ -35,12 +31,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   onLanguageChange,
   onSaveToTimeline,
   onOpenVerifierWithCrop,
-  onOpenVoiceModal,
 }) => {
   const t = TRANSLATIONS[language];
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isLoadingVoice, setIsLoadingVoice] = useState<boolean>(false);
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
 
   const ur = result.translations?.ur;
@@ -73,20 +67,6 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
       : language === 'ps' && ps?.bestTime
       ? ps.bestTime
       : result.bestTime;
-
-  const localizedWhySummary =
-    language === 'ur' && ur?.whySummary
-      ? ur.whySummary
-      : language === 'ps' && ps?.whySummary
-      ? ps.whySummary
-      : result.detailedExplanation;
-
-  const localizedWhyPoints =
-    language === 'ur' && ur?.whyPoints?.length
-      ? ur.whyPoints
-      : language === 'ps' && ps?.whyPoints?.length
-      ? ps.whyPoints
-      : result.why;
 
   const med = result.approvedTreatments[0];
   const localizedMedicineName =
@@ -158,7 +138,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     const text = encodeURIComponent(
       `🌾 *کسان دوست مشورہ (KissanDost)*\n` +
         `• فصل: ${localizedCrop}\n` +
-        `• مسئلہ: ${localizedDisease}\n` +
+        `• بیماری: ${localizedDisease}\n` +
         `• کیا کریں: ${localizedAction}\n` +
         `• اسپرے کا وقت: ${localizedBestTime}\n` +
         `• دوائی: ${localizedMedicineName} (${localizedDosage})`
@@ -166,346 +146,185 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
-  const submitFeedback = async (helpful: boolean) => {
-    try {
-      await fetch('/api/v1/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scanId: result.scanId,
-          rating: helpful ? 5 : 2,
-          helpful,
-        }),
-      });
-      setFeedbackSubmitted(true);
-    } catch {
-      setFeedbackSubmitted(true);
-    }
-  };
-
   const handleSave = () => {
     onSaveToTimeline();
     setIsSaved(true);
   };
 
-  const isRainExpected = result.weatherSnapshot.rainProbability > 35;
-  const severityEmoji =
-    result.severity === 'Healthy' ? '🟢' : result.severity === 'Severe' ? '🔴' : '🟡';
-  const severityText =
-    result.severity === 'Healthy'
-      ? t.sevHealthy
-      : result.severity === 'Severe'
-      ? t.sevSevere
-      : result.severity === 'Mild'
-      ? t.sevMild
-      : t.sevModerate;
+  const isRainExpected = result.weatherSnapshot.rainProbability >= 50;
 
   return (
-    <div className="space-y-8 animate-diagnosis-slide">
-      {/* VOICE BANNER */}
-      <div className="bg-[#0F6B4B] text-white rounded-[20px] p-6 sm:p-8 shadow-[0_8px_24px_rgba(0,0,0,0.08)] space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <span className="text-[13px] font-normal text-white/80 block">
-              {language === 'ur'
-                ? 'پڑھنے کی ضرورت نہیں — بٹن دبائیں اور اپنی زبان میں سنیں'
-                : language === 'ps'
-                ? 'لوستلو ته اړتیا نشته — تڼۍ کېکاږئ او په خپله ژبه یې واورئ'
-                : 'No need to read — Press below to hear advice in your language'}
-            </span>
-            <h2 className="text-[24px] sm:text-[28px] font-bold tracking-tight">
-              {language === 'ur'
-                ? 'پورا مشورہ آواز میں سنیں'
-                : language === 'ps'
-                ? 'بشپړه مشوره په غږ کې واورئ'
-                : 'Listen to Full Advice in Voice'}
-            </h2>
-          </div>
+    <div className="max-w-2xl mx-auto space-y-5 animate-diagnosis-slide">
+      {/* 1. LOCAL LANGUAGE VOICE OUTPUT (Primary Farmer Action) */}
+      <div className="bg-[#0F6B4B] text-white rounded-[20px] p-6 shadow-[0_8px_24px_rgba(0,0,0,0.08)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <span className="text-[13px] text-white/85 block">
+            {language === 'ur'
+              ? 'پڑھنے کی ضرورت نہیں — اپنی زبان میں مشورہ سنیں'
+              : language === 'ps'
+              ? 'لوستلو ته اړتیا نشته — په خپله ژبه مشوره واورئ'
+              : 'Listen to the advice in your language'}
+          </span>
+          <h2 className="text-[22px] font-bold">
+            {language === 'ur'
+              ? 'آواز میں مشورہ سنیں'
+              : language === 'ps'
+              ? 'په غږ کې مشوره واورئ'
+              : 'Voice Advice'}
+          </h2>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => playHumanVoice('ur')}
-              className={`min-h-[56px] px-6 py-3 rounded-[16px] font-semibold text-[16px] flex items-center gap-3 shadow-xs transition-all cursor-pointer ${
-                isSpeaking && language === 'ur'
-                  ? 'bg-[#E53935] text-white'
-                  : 'bg-[#F6B81A] hover:bg-[#F6B81A]/90 text-[#17231F]'
-              }`}
-            >
-              {isLoadingVoice && language === 'ur' ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : isSpeaking && language === 'ur' ? (
-                <VolumeX className="w-5 h-5" />
-              ) : (
-                <Volume2 className="w-5 h-5" />
-              )}
-              <span>{isSpeaking && language === 'ur' ? 'آواز روکیں' : 'اردو میں سنیں'}</span>
-            </button>
-
-            <button
-              onClick={() => playHumanVoice('ps')}
-              className={`min-h-[56px] px-6 py-3 rounded-[16px] font-semibold text-[16px] flex items-center gap-3 shadow-xs transition-all cursor-pointer ${
-                isSpeaking && language === 'ps'
-                  ? 'bg-[#E53935] text-white'
-                  : 'bg-white hover:bg-white/90 text-[#17231F]'
-              }`}
-            >
-              {isLoadingVoice && language === 'ps' ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : isSpeaking && language === 'ps' ? (
-                <VolumeX className="w-5 h-5" />
-              ) : (
-                <Volume2 className="w-5 h-5 text-[#0F6B4B]" />
-              )}
-              <span>{isSpeaking && language === 'ps' ? 'غږ بند کړئ' : 'په پښتو واورئ'}</span>
-            </button>
-
-            {onOpenVoiceModal && (
-              <button
-                onClick={onOpenVoiceModal}
-                className="min-h-[56px] px-5 py-3 rounded-[16px] bg-[#0A4D36] hover:bg-[#0A4D36]/80 text-white text-[14px] font-normal cursor-pointer"
-              >
-                {language === 'ur' ? 'مزید سوالات سنیں' : language === 'ps' ? 'نورې پوښتنې واورئ' : 'More Voice Options'}
-              </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => playHumanVoice('ur')}
+            className={`min-h-[52px] px-5 py-3 rounded-[14px] font-bold text-[15px] flex items-center gap-2.5 transition-all cursor-pointer ${
+              isSpeaking && language === 'ur'
+                ? 'bg-[#E53935] text-white'
+                : 'bg-[#F6B81A] hover:bg-[#F6B81A]/90 text-[#17231F]'
+            }`}
+          >
+            {isLoadingVoice && language === 'ur' ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isSpeaking && language === 'ur' ? (
+              <VolumeX className="w-5 h-5" />
+            ) : (
+              <Volume2 className="w-5 h-5" />
             )}
-          </div>
+            <span>{isSpeaking && language === 'ur' ? 'آواز روکیں' : 'اردو میں سنیں'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => playHumanVoice('ps')}
+            className={`min-h-[52px] px-5 py-3 rounded-[14px] font-bold text-[15px] flex items-center gap-2.5 transition-all cursor-pointer ${
+              isSpeaking && language === 'ps'
+                ? 'bg-[#E53935] text-white'
+                : 'bg-white hover:bg-white/90 text-[#17231F]'
+            }`}
+          >
+            {isLoadingVoice && language === 'ps' ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isSpeaking && language === 'ps' ? (
+              <VolumeX className="w-5 h-5" />
+            ) : (
+              <Volume2 className="w-5 h-5 text-[#0F6B4B]" />
+            )}
+            <span>{isSpeaking && language === 'ps' ? 'غږ بند کړئ' : 'په پښتو واورئ'}</span>
+          </button>
         </div>
       </div>
 
-      {/* STEP 1: WHAT IS THE PROBLEM? (72x72 Image + Confidence + Severity + Trust Indicators) */}
-      <div className="bg-white rounded-[20px] p-6 sm:p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-6">
-        <div className="text-[13px] font-semibold text-[#0F6B4B]">{t.step1Title}</div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-4">
-            {result.imageUrl && (
-              <img
-                src={result.imageUrl}
-                alt={localizedCrop}
-                referrerPolicy="no-referrer"
-                className="w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-[16px] object-cover shrink-0 shadow-xs"
-              />
-            )}
-            <div className="space-y-1.5">
-              <div className="text-[13px] font-normal text-[#6B7280]">
-                {localizedCrop} · {result.district}
-              </div>
-              <h3 className="text-[24px] sm:text-[28px] font-bold text-[#17231F] leading-snug">
-                {localizedDisease}
-              </h3>
-
-              {/* Severity + AI Confidence + Trust Indicators */}
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-[13px] font-normal text-[#6B7280]">
-                <span className="font-semibold text-[#17231F]">
-                  {severityEmoji} {severityText}
-                </span>
-                <span aria-hidden="true">·</span>
-                <span className="font-semibold text-[#0F6B4B] tabular-nums">
-                  ✓ AI Confidence {result.confidence}%
-                </span>
-                <span aria-hidden="true">·</span>
-                <span className="inline-flex items-center gap-1 text-[#6B7280]">
-                  <ShieldCheck className="w-4 h-4 text-[#0F6B4B]" />
-                  {language === 'ur'
-                    ? 'زرعی ماہرین سے تصدیق شدہ · آج اپڈیٹ ہوا'
-                    : language === 'ps'
-                    ? 'د کرنې پوهانو لخوا تایید شوی · نن تازه شوی'
-                    : 'Verified by Agriculture Experts · Updated Today'}
-                </span>
-              </div>
+      {/* 2. DISEASE NAME & CLEAR ACTION STEPS */}
+      <div className="bg-white rounded-[20px] p-6 sm:p-7 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-6">
+        {/* Disease Name Header */}
+        <div className="flex items-center gap-4">
+          {result.imageUrl ? (
+            <img
+              src={result.imageUrl}
+              alt={localizedCrop}
+              referrerPolicy="no-referrer"
+              className="w-[72px] h-[72px] rounded-[16px] object-cover shrink-0 shadow-xs"
+            />
+          ) : (
+            <div className="w-[72px] h-[72px] rounded-[16px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
+              <Sprout className="w-8 h-8" />
             </div>
+          )}
+          <div className="space-y-1 min-w-0">
+            <div className="text-[13px] font-semibold text-[#0F6B4B]">
+              {localizedCrop} · {result.district}
+            </div>
+            <h3 className="text-[22px] sm:text-[26px] font-bold text-[#17231F] leading-snug">
+              {localizedDisease}
+            </h3>
           </div>
         </div>
 
-        {/* Main Instruction */}
-        <div className="p-6 rounded-[16px] bg-[#EBF5F0] space-y-1.5">
-          <div className="text-[12px] font-semibold text-[#0F6B4B]">{t.recommendedActionTitle}</div>
-          <p className="text-[16px] sm:text-[18px] font-normal text-[#17231F] leading-relaxed">
+        {/* Clear Action Step 1: What to do right now */}
+        <div className="p-5 rounded-[16px] bg-[#EBF5F0] space-y-1.5">
+          <div className="flex items-center gap-2 text-[13px] font-bold text-[#0F6B4B]">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{t.recommendedActionTitle}</span>
+          </div>
+          <p className="text-[16px] sm:text-[18px] font-medium text-[#17231F] leading-relaxed">
             {localizedAction}
           </p>
         </div>
-      </div>
 
-      {/* STEP 2: WHEN TO SPRAY? (Weather & Rain Check) */}
-      <div className="bg-white rounded-[20px] p-6 sm:p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[13px] font-semibold text-[#0F6B4B]">{t.step2Title}</div>
-          <div className="text-[12px] font-normal text-[#6B7280]">
-            {language === 'ur'
-              ? 'موسمی ذریعہ: Open-Meteo'
-              : language === 'ps'
-              ? 'د هوا سرچینه: Open-Meteo'
-              : 'Weather Source: Open-Meteo'}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-          <div className="p-6 rounded-[16px] bg-[#F7F8F6] flex items-center gap-4">
-            <div className="w-14 h-14 rounded-[16px] bg-white flex items-center justify-center shrink-0 shadow-xs">
-              {isRainExpected ? (
-                <CloudRain className="w-7 h-7 text-[#0F6B4B]" />
-              ) : (
-                <Sun className="w-7 h-7 text-[#F6B81A]" />
-              )}
-            </div>
-            <div>
-              <div className="text-[12px] font-normal text-[#6B7280]">{t.bestSprayWindow}</div>
-              <div className="text-[20px] font-semibold text-[#17231F] mt-0.5">
-                {localizedBestTime}
-              </div>
-              <div className="text-[13px] font-normal text-[#6B7280] mt-1 tabular-nums">
-                {result.weatherSnapshot.temperature}°C ·{' '}
-                {language === 'ur'
-                  ? `بارش کا امکان: ${result.weatherSnapshot.rainProbability}%`
-                  : language === 'ps'
-                  ? `د باران امکان: ${result.weatherSnapshot.rainProbability}%`
-                  : `Rain Chance: ${result.weatherSnapshot.rainProbability}%`}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-[16px] font-normal text-[#17231F] leading-relaxed">
-              {localizedWhySummary}
-            </p>
-            <ul className="space-y-2 pt-1">
-              {localizedWhyPoints.map((pt, idx) => (
-                <li key={idx} className="text-[14px] font-normal text-[#6B7280] flex items-start gap-2">
-                  <span className="font-semibold text-[#0F6B4B]">{idx + 1}.</span>
-                  <span>{pt}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* STEP 3: WHICH MEDICINE & HOW MUCH TO MIX? */}
-      <div className="bg-white rounded-[20px] p-6 sm:p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-6">
-        <div className="text-[13px] font-semibold text-[#0F6B4B]">{t.step3Title}</div>
-
+        {/* Clear Action Step 2: Medicine & Dosage */}
         {result.approvedTreatments.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-[16px] bg-[#EBF5F0] space-y-2">
-              <div className="text-[12px] font-semibold text-[#0F6B4B]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-5 rounded-[16px] bg-[#F7F8F6] space-y-1.5">
+              <div className="text-[12px] font-bold text-[#0F6B4B]">
                 {language === 'ur'
-                  ? 'سرکاری طور پر منظور شدہ دوائی:'
+                  ? 'تجویز کردہ دوائی اور مقدار:'
                   : language === 'ps'
-                  ? 'منل شوی او خوندي درمل:'
-                  : 'Approved Safe Medicine:'}
+                  ? 'تجویز شوې دوایي او اندازه:'
+                  : 'Medicine & Dosage:'}
               </div>
-              <div className="text-[20px] font-semibold text-[#17231F]">{localizedMedicineName}</div>
-              <p className="text-[16px] font-normal text-[#17231F] pt-1">{localizedDosage}</p>
+              <div className="text-[18px] font-bold text-[#17231F]">{localizedMedicineName}</div>
+              <p className="text-[15px] text-[#17231F] leading-relaxed">{localizedDosage}</p>
             </div>
 
-            <div className="p-6 rounded-[16px] bg-[#F7F8F6] space-y-3">
-              <div className="text-[12px] font-semibold text-[#6B7280]">
-                {language === 'ur'
-                  ? 'ضروری احتیاط:'
-                  : language === 'ps'
-                  ? 'ضروري احتیاط:'
-                  : 'Safety Rule:'}
+            {/* Best Time to Spray */}
+            <div className="p-5 rounded-[16px] bg-[#F7F8F6] flex items-center gap-4">
+              <div className="w-12 h-12 rounded-[14px] bg-white flex items-center justify-center shrink-0 shadow-xs">
+                {isRainExpected ? (
+                  <CloudRain className="w-6 h-6 text-[#0F6B4B]" />
+                ) : (
+                  <Sun className="w-6 h-6 text-[#F6B81A]" />
+                )}
               </div>
-              <p className="text-[16px] font-normal text-[#17231F] leading-relaxed">{localizedSafety}</p>
-              <button
-                onClick={() => onOpenVerifierWithCrop(result.crop, result.disease)}
-                className="min-h-[56px] px-5 py-3 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white text-[14px] font-semibold inline-flex items-center gap-2 cursor-pointer"
-              >
-                <FlaskConical className="w-4 h-4 text-[#F6B81A]" />
-                <span>
-                  {language === 'ur'
-                    ? 'کوئی دوسری دوائی چیک کریں'
-                    : language === 'ps'
-                    ? 'بل درمل دلته وګورئ'
-                    : 'Check Another Medicine Bottle'}
-                </span>
-              </button>
+              <div className="space-y-1">
+                <div className="text-[12px] font-bold text-[#6B7280]">{t.bestSprayWindow}</div>
+                <div className="text-[17px] font-bold text-[#17231F]">{localizedBestTime}</div>
+                <div className="text-[13px] text-[#6B7280]">{localizedSafety}</div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Free Desi / Home Method */}
-        {result.organicAlternatives.length > 0 && (
-          <div className="p-6 rounded-[16px] bg-[#F7F8F6] space-y-2">
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-[#0F6B4B]">
-              <Sprout className="w-5 h-5 text-[#0F6B4B]" />
-              <span>{t.homeRemedyTitle}</span>
-            </div>
-            <p className="text-[16px] font-normal text-[#17231F]">
-              {language === 'ur'
-                ? 'پودے کے نچلے خراب اور دھبے والے پتوں کو ہاتھ سے توڑ کر زمین میں دبا دیں، یا نیم کے بیج کا پانی (۵ فیصد) اسپرے کریں۔'
-                : language === 'ps'
-                ? 'د بوټي لاندینۍ خرابې پاڼې وشکوئ او تر خاورو لاندې یې پټې کړئ، یا د نیم د ونې د زڼو اوبه پرې وشیندئ.'
-                : result.organicAlternatives.join(' • ')}
-            </p>
-          </div>
-        )}
-
-        {/* Action Buttons: Save, Share on WhatsApp, Call Helpline (56px height) */}
-        <div className="pt-4 flex flex-wrap items-center gap-4">
+        {/* Simple Footer Actions */}
+        <div className="pt-2 flex flex-wrap items-center gap-3">
           <button
+            type="button"
+            onClick={() => onOpenVerifierWithCrop(result.crop, result.disease)}
+            className="min-h-[48px] px-5 py-2.5 rounded-[14px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white text-[14px] font-semibold inline-flex items-center gap-2 cursor-pointer"
+          >
+            <FlaskConical className="w-4 h-4 text-[#F6B81A]" />
+            <span>
+              {language === 'ur'
+                ? 'دوائی کی بوتل اسکین کریں'
+                : language === 'ps'
+                ? 'د دوایۍ بوتل سکین کړئ'
+                : 'Scan Medicine Bottle'}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleSave}
             disabled={isSaved}
-            className={`min-h-[56px] px-6 py-3 rounded-[16px] text-[15px] font-semibold flex items-center gap-2.5 transition-all cursor-pointer ${
+            className={`min-h-[48px] px-5 py-2.5 rounded-[14px] text-[14px] font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               isSaved
                 ? 'bg-[#EBF5F0] text-[#0F6B4B]'
-                : 'bg-[#17231F] hover:bg-[#17231F]/90 text-white'
+                : 'bg-[#F7F8F6] hover:bg-stone-200 text-[#17231F]'
             }`}
           >
-            <BookmarkCheck className="w-5 h-5" />
+            <BookmarkCheck className="w-4 h-4" />
             <span>{isSaved ? (language === 'ur' ? 'محفوظ ہو گیا' : 'Saved') : t.saveBtn}</span>
           </button>
 
           <button
+            type="button"
             onClick={handleShareWhatsApp}
-            className="min-h-[56px] px-6 py-3 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white text-[15px] font-semibold flex items-center gap-2.5 transition-colors cursor-pointer"
+            className="min-h-[48px] px-5 py-2.5 rounded-[14px] bg-[#F7F8F6] hover:bg-stone-200 text-[#17231F] text-[14px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-4 h-4 text-[#0F6B4B]" />
             <span>{t.shareBtn}</span>
           </button>
-
-          <a
-            href="tel:1925"
-            className="min-h-[56px] px-6 py-3 rounded-[16px] bg-[#F6B81A]/20 hover:bg-[#F6B81A]/30 text-[#17231F] text-[15px] font-semibold flex items-center gap-2.5 transition-colors ms-auto"
-          >
-            <PhoneCall className="w-5 h-5 text-[#0F6B4B]" />
-            <span>
-              {language === 'ur'
-                ? 'مفت زرعی ہیلپ لائن: 1925'
-                : language === 'ps'
-                ? 'وړیا کرنیز نمبر: 1925'
-                : 'Free Helpline: 1925'}
-            </span>
-          </a>
         </div>
-      </div>
-
-      {/* Simple Feedback Box */}
-      <div className="bg-white rounded-[20px] p-6 shadow-[0_8px_24px_rgba(0,0,0,0.06)] flex flex-col sm:flex-row items-center justify-between gap-4">
-        <span className="font-semibold text-[#17231F] text-[16px]">{t.feedbackHelpful}</span>
-
-        {feedbackSubmitted ? (
-          <div className="text-[15px] font-semibold text-[#0F6B4B] flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-[#0F6B4B]" />
-            <span>{t.feedbackThankYou}</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => submitFeedback(true)}
-              className="min-h-[56px] px-6 py-3 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white text-[15px] font-semibold flex items-center gap-2 cursor-pointer"
-            >
-              <ThumbsUp className="w-4 h-4" />
-              <span>{language === 'ur' ? 'ہاں، سمجھ آ گیا' : language === 'ps' ? 'هو، پوه شوم' : 'Yes, Easy'}</span>
-            </button>
-            <button
-              onClick={() => submitFeedback(false)}
-              className="min-h-[56px] px-5 py-3 rounded-[16px] bg-[#F7F8F6] hover:bg-stone-200 text-[#6B7280] text-[15px] font-normal flex items-center gap-2 cursor-pointer"
-            >
-              <ThumbsDown className="w-4 h-4" />
-              <span>{t.feedbackNotHelpful}</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

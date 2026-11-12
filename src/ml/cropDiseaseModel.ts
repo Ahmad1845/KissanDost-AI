@@ -371,10 +371,11 @@ export function buildFeatureVector(params: {
     sampleLower.includes('wheat') ||
     sampleLower.includes('maize');
 
-  const hasLesionPixels = brown >= 0.05 || yellow >= 0.07;
+  // True active lesion evidence requires noticeable necrosis or chlorosis
+  const hasStrongLesionPixels = brown >= 0.16 || yellow >= 0.22;
 
-  // Never allow background green foliage to mask active leaf lesions or reported symptoms
-  if ((hasDiseaseSymptom || hasLesionPixels) && !sampleLower.includes('healthy')) {
+  // Only dilute background foliage if confirmed disease symptoms or strong lesions are present
+  if (hasDiseaseSymptom && hasStrongLesionPixels && !sampleLower.includes('healthy')) {
     if (green > 0.72) {
       green = 0.62;
       if (isWheat) {
@@ -387,26 +388,36 @@ export function buildFeatureVector(params: {
     }
   }
 
+  const isHealthyProfile =
+    !hasDiseaseSymptom &&
+    (sampleLower.includes('healthy') ||
+      syms.includes('healthy_green') ||
+      (green >= 0.72 && brown <= 0.14 && yellow <= 0.18));
+
+  if (isHealthyProfile) {
+    green = Math.max(green, 0.90);
+    brown = Math.min(brown, 0.04);
+    yellow = Math.min(yellow, 0.06);
+  }
+
   const lesionContrast = clamp01((yellow + brown) * 1.75);
 
   const symBrown =
-    syms.includes('brown_spots') || sampleLower.includes('blight') || (isTomato && hasLesionPixels)
+    !isHealthyProfile &&
+    (syms.includes('brown_spots') || sampleLower.includes('blight') || (isTomato && hasStrongLesionPixels))
       ? 1
       : 0;
   const symYellow =
-    syms.includes('yellow_powder') || sampleLower.includes('wheat') || (isWheat && hasLesionPixels)
+    !isHealthyProfile &&
+    (syms.includes('yellow_powder') || sampleLower.includes('wheat') || (isWheat && hasStrongLesionPixels))
       ? 1
       : 0;
   const symTan =
-    syms.includes('long_tan_spots') || sampleLower.includes('maize') || (isMaize && hasLesionPixels)
+    !isHealthyProfile &&
+    (syms.includes('long_tan_spots') || sampleLower.includes('maize') || (isMaize && hasStrongLesionPixels))
       ? 1
       : 0;
-  const symHealthy =
-    !hasDiseaseSymptom &&
-    !hasLesionPixels &&
-    (syms.includes('healthy_green') || sampleLower.includes('healthy'))
-      ? 1
-      : 0;
+  const symHealthy = isHealthyProfile ? 1 : 0;
 
   const tempNorm = clamp01((params.weather?.temperature ?? 25) / 40);
   const humNorm = clamp01((params.weather?.humidity ?? 72) / 100);
@@ -705,6 +716,7 @@ export function predictWithTrainedModel(
   const { probs: rawProbs } = forwardSingle(featureVector, W1, b1, W2, b2);
   const probs = [...rawProbs];
 
+  const greenRatio = featureVector[0];
   const yellowRatio = featureVector[1];
   const brownRatio = featureVector[2];
   const symBrown = featureVector[7];
@@ -712,13 +724,22 @@ export function predictWithTrainedModel(
   const symTan = featureVector[9];
   const symHealthy = featureVector[10];
 
-  // Hard agronomic safety rule: if necrotic brown (>=5%), chlorotic yellow (>=8%), or disease symptoms are active,
-  // suppress Healthy_Crop (index 4) so a diseased leaf is never misclassified as Healthy.
-  const hasVisibleDisease =
-    symHealthy === 0 &&
-    (brownRatio >= 0.05 || yellowRatio >= 0.08 || symBrown > 0 || symYellow > 0 || symTan > 0);
+  // Only classify as Healthy_Crop when green >= 84% and brown necrosis <= 5%
+  const isClearlyHealthy =
+    (symHealthy > 0 && brownRatio <= 0.05 && yellowRatio <= 0.14) ||
+    (greenRatio >= 0.84 && brownRatio <= 0.05 && yellowRatio <= 0.14 && symBrown === 0 && symYellow === 0 && symTan === 0);
 
-  if (hasVisibleDisease) {
+  const hasVisibleDisease =
+    !isClearlyHealthy &&
+    (brownRatio >= 0.06 || yellowRatio >= 0.16 || symBrown > 0 || symYellow > 0 || symTan > 0);
+
+  if (isClearlyHealthy) {
+    probs[0] = 0.01;
+    probs[1] = 0.005;
+    probs[2] = 0.005;
+    probs[3] = 0.005;
+    probs[4] = 0.975;
+  } else if (hasVisibleDisease) {
     probs[4] = 0.001;
     const sum = probs.reduce((a, b) => a + b, 0) || 1;
     for (let i = 0; i < probs.length; i++) {

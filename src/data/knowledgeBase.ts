@@ -229,6 +229,56 @@ export const AGRICULTURAL_KNOWLEDGE_BASE: KnowledgeDoc[] = [
     ]
   },
   {
+    id: 'kb-cotton-health-and-clcuv',
+    crop: 'Cotton',
+    disease: 'Cotton Health & Leaf Protection Advisory',
+    source: 'PARC',
+    title: 'Advisory 2026/CT: Cotton Crop Health & Leaf Protection Management in Pakistan',
+    symptoms: [
+      'Healthy palmate green leaves without curling, thickening, or enation',
+      'Upward or downward leaf curling with vein thickening if CLCuV is present',
+      'Angular water-soaked spots turning dark brown if Bacterial Blight is present'
+    ],
+    favorableWeather: {
+      tempRange: '28°C - 38°C',
+      humidity: '50% - 75% relative humidity',
+      rainRisk: 'High humidity favors sucking pests and bacterial leaf blight'
+    },
+    decisionRules: [
+      {
+        condition: 'Healthy cotton canopy (Zero lesions or curling)',
+        action: 'Do NOT apply any chemical fungicides or toxic sprays. Save farmer money and preserve beneficial predatory insects.',
+        sprayWindow: 'No spray needed',
+        reason: 'Unnecessary spraying wastes money and causes resurgence of secondary pests.'
+      },
+      {
+        condition: 'Active Cotton Leaf Curl Virus (CLCuV) transmission',
+        action: 'Manage vector whitefly population using neem seed extract or registered selective deterrents; rogue out heavily infected plants.',
+        sprayWindow: 'Early morning 7:00 AM - 10:00 AM',
+        reason: 'Controlling whitefly prevents virus spread to neighboring healthy cotton plants.'
+      }
+    ],
+    approvedTreatments: [
+      {
+        name: 'No Chemical Treatment for Healthy Foliage',
+        activeIngredient: 'None',
+        dosage: '0 g/Acre',
+        withholdingPeriod: '0 days',
+        safetyPPE: 'None needed',
+        isRestricted: false
+      }
+    ],
+    organicAlternatives: [
+      'Neem seed kernel extract (5%) spray for natural pest deterrence',
+      'Yellow sticky traps placed above crop canopy for pest monitoring'
+    ],
+    preventionTips: [
+      'Use CLCuV-tolerant certified seed varieties',
+      'Keep field borders free of alternate weed hosts like Parthenium',
+      'Inspect lower leaf surfaces twice weekly for early signs of sucking pests'
+    ]
+  },
+  {
     id: 'kb-healthy-general',
     crop: 'General',
     disease: 'Healthy Crop (No Disease Detected)',
@@ -534,6 +584,14 @@ export const SAMPLE_CROP_IMAGES: SampleCropImage[] = [
     suspectedCondition: 'Healthy (No Symptoms)',
     dataUrl: createSampleSvg('Tomato: Healthy Vigor Canopy', '#22c55e', 'none', 'Uniform green pigmentation, turgid leaves, zero necrosis'),
     description: 'Optimal healthy tomato leaf sample demonstrating zero signs of infection or nutrient stress.'
+  },
+  {
+    id: 'sample-healthy-cotton',
+    name: 'Healthy Cotton Leaf (صحت مند کپاس)',
+    crop: 'Cotton',
+    suspectedCondition: 'Healthy (No Symptoms)',
+    dataUrl: createSampleSvg('Cotton: Healthy Palmate Canopy (کپاس)', '#15803d', 'none', 'Clean palmate leaf blade, vibrant green chlorophyll, zero lesions'),
+    description: 'Optimal healthy cotton leaf specimen with smooth green lobes and zero fungal or insect damage.'
   }
 ];
 

@@ -33,7 +33,7 @@ export const settings: BackendSettings = {
   geminiVisionModel: process.env.GEMINI_VISION_MODEL || 'gemini-3.8-flash',
   geminiTtsPrimaryModel: process.env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts',
   geminiTtsFallbackModel: 'gemini-3.8-flash-lite-tts',
-  geminiTimeoutMs: Number(process.env.GEMINI_TIMEOUT_MS) || 5500,
+  geminiTimeoutMs: Number(process.env.GEMINI_TIMEOUT_MS) || 9000,
   rateLimitWindowMs: 60 * 1000,
   rateLimitMaxRequests: 120,
   cacheTtlSeconds: 300,

@@ -1,4 +1,38 @@
 // Domain Contracts & API Schemas (src/backend/schemas/apiSchemas.ts)
+export interface ImageQualityMetricsSchema {
+  blurScore: number; // 0..100 (higher = sharper)
+  lightingScore: number; // 0..100 (optimal 35..85)
+  resolutionValid: boolean;
+  leafVisibilityPct: number; // 0..100
+  overlappingLeaves: boolean;
+  isAcceptable: boolean;
+  rejectionReasons: string[];
+}
+
+export interface TopDiseasePredictionSchema {
+  diseaseId: string;
+  diseaseName: string;
+  diseaseNameUr: string;
+  diseaseNamePs: string;
+  confidence: number;
+}
+
+export interface HybridConsensusResultSchema {
+  agreementLevel: 'HIGH' | 'MEDIUM' | 'LOW';
+  confidenceTier: 'High Confidence' | 'Medium Confidence' | 'Low Confidence';
+  finalConfidence: number;
+  geminiPrediction: string;
+  geminiConfidence: number;
+  leafVisionTop1: string;
+  leafVisionTop1Confidence: number;
+  matchedModelRank: 1 | 2 | 3 | null;
+  withholdTreatment: boolean;
+  requiresAdditionalImage: boolean;
+  consensusExplanation: string;
+  consensusExplanationUr: string;
+  consensusExplanationPs: string;
+}
+
 export interface LeafBiomarkersSchema {
   greenHealthyPct: number;
   yellowChloroticPct: number;
@@ -7,11 +41,22 @@ export interface LeafBiomarkersSchema {
 
 export interface DiagnosisRequestSchema {
   imageBase64: string;
+  secondaryImages?: {
+    wholePlantBase64?: string;
+    stemBase64?: string;
+    fruitBase64?: string;
+  };
   sampleId?: string;
   cropHint?: string;
+  consensusTestMode?: 'AUTO' | 'HIGH' | 'MEDIUM' | 'LOW';
+  plantingDate?: string;
+  daysSincePlanting?: number;
+  recentlySprayedPesticide?: boolean;
+  recentPesticideName?: string;
   growthStage?: 'Seedling' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Harvest';
   symptoms?: string[];
   biomarkers?: LeafBiomarkersSchema | null;
+  imageQuality?: ImageQualityMetricsSchema | null;
   district?: string;
   village?: string;
   consentToShare?: boolean;

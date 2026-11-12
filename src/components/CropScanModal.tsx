@@ -1,9 +1,20 @@
-// KissanDost AI — Leaf Camera & HSV Biomarker Scanner Modal
-import React, { useState, useRef } from 'react';
-import { Camera, Upload, X, CheckCircle2, Loader2, AlertCircle, Check, ChevronDown } from 'lucide-react';
+// KissanDost AI — Minimalist Farmer-First Leaf Vision & Disease Detection Modal
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Camera,
+  Upload,
+  X,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Calendar,
+  MapPin,
+  ShieldAlert,
+  RefreshCw,
+  Sprout,
+} from 'lucide-react';
 import { Language, Farm, RecommendationResult } from '../types';
 import { TRANSLATIONS } from '../data/translations';
-import { SAMPLE_CROP_IMAGES, SampleCropImage } from '../data/knowledgeBase';
 
 interface CropScanModalProps {
   isOpen: boolean;
@@ -19,9 +30,25 @@ export interface LeafBiomarkers {
   brownNecroticPct: number;
 }
 
-/**
- * Converts RGB (0..255) to HSV (h: 0..360, s: 0..1, v: 0..1)
- */
+export interface ImageQualityReport {
+  blurScore: number;
+  lightingScore: number;
+  resolutionValid: boolean;
+  leafVisibilityPct: number;
+  overlappingLeaves: boolean;
+  isAcceptable: boolean;
+  rejectionReasons: string[];
+}
+
+export interface AutoVisionPreview {
+  detectedCrop: 'Tomato' | 'Potato' | 'Wheat' | 'Maize' | 'Chili' | 'Onion' | 'Cotton' | 'Okra';
+  cropConfidence: number;
+  severity: 'Healthy' | 'Mild' | 'Moderate' | 'Severe';
+  affectedLeafPct: number;
+  detectedSymptoms: string[];
+  internalSymptomKeys: string[];
+}
+
 function rgbToHsv(r: number, g: number, b: number): { h: number; s: number; v: number } {
   const rn = r / 255;
   const gn = g / 255;
@@ -51,6 +78,60 @@ function rgbToHsv(r: number, g: number, b: number): { h: number; s: number; v: n
   return { h, s, v };
 }
 
+function calculateCropAgeAndGrowthStage(
+  crop: string,
+  mode: 'days' | 'date',
+  daysInput: number,
+  dateInput: string
+): {
+  cropAgeDays: number;
+  estimatedGrowthStage: 'Seedling' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Harvest';
+} {
+  let ageDays = 45;
+  if (mode === 'days') {
+    ageDays = Math.max(1, Math.min(260, Math.round(daysInput || 45)));
+  } else if (dateInput) {
+    const parsed = new Date(dateInput);
+    if (!Number.isNaN(parsed.getTime())) {
+      const diff = Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
+      if (diff >= 1 && diff <= 300) {
+        ageDays = diff;
+      }
+    }
+  }
+
+  const cropNorm = (crop || 'Tomato').toLowerCase();
+  let stage: 'Seedling' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Harvest' = 'Vegetative';
+
+  if (cropNorm === 'wheat') {
+    if (ageDays <= 22) stage = 'Seedling';
+    else if (ageDays <= 65) stage = 'Vegetative';
+    else if (ageDays <= 95) stage = 'Flowering';
+    else if (ageDays <= 125) stage = 'Fruiting';
+    else stage = 'Harvest';
+  } else if (cropNorm === 'maize') {
+    if (ageDays <= 18) stage = 'Seedling';
+    else if (ageDays <= 50) stage = 'Vegetative';
+    else if (ageDays <= 72) stage = 'Flowering';
+    else if (ageDays <= 98) stage = 'Fruiting';
+    else stage = 'Harvest';
+  } else if (cropNorm === 'cotton') {
+    if (ageDays <= 25) stage = 'Seedling';
+    else if (ageDays <= 55) stage = 'Vegetative';
+    else if (ageDays <= 85) stage = 'Flowering';
+    else if (ageDays <= 135) stage = 'Fruiting';
+    else stage = 'Harvest';
+  } else {
+    if (ageDays <= 20) stage = 'Seedling';
+    else if (ageDays <= 42) stage = 'Vegetative';
+    else if (ageDays <= 65) stage = 'Flowering';
+    else if (ageDays <= 92) stage = 'Fruiting';
+    else stage = 'Harvest';
+  }
+
+  return { cropAgeDays: ageDays, estimatedGrowthStage: stage };
+}
+
 export const CropScanModal: React.FC<CropScanModalProps> = ({
   isOpen,
   onClose,
@@ -63,17 +144,44 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const [selectedImage, setSelectedImage] = useState<string | null>(SAMPLE_CROP_IMAGES[0].dataUrl);
-  const [selectedSampleId, setSelectedSampleId] = useState<string>(SAMPLE_CROP_IMAGES[0].id);
-  const [isCustomUpload, setIsCustomUpload] = useState<boolean>(false);
-  const [showSamplesWhenUploaded, setShowSamplesWhenUploaded] = useState<boolean>(false);
-  const [selectedCrop, setSelectedCrop] = useState<string>(activeFarm.cropType || 'Tomato');
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>(['brown_spots']);
-  const [biomarkers, setBiomarkers] = useState<LeafBiomarkers>({
-    greenHealthyPct: 60,
-    yellowChloroticPct: 18,
-    brownNecroticPct: 22,
+  // Step 1: Primary Leaf Image starts NULL (no pre-loaded photo before farmer uploads)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Pre-Diagnosis Image Quality State
+  const [imageQuality, setImageQuality] = useState<ImageQualityReport>({
+    blurScore: 91,
+    lightingScore: 78,
+    resolutionValid: true,
+    leafVisibilityPct: 86,
+    overlappingLeaves: false,
+    isAcceptable: true,
+    rejectionReasons: [],
   });
+
+  // Step 2: Farmer Selects the Crop
+  const [selectedCrop, setSelectedCrop] = useState<
+    'Tomato' | 'Potato' | 'Wheat' | 'Maize' | 'Chili' | 'Cotton' | 'Onion'
+  >('Cotton');
+
+  // Extracted Leaf Biomarkers
+  const [biomarkers, setBiomarkers] = useState<LeafBiomarkers>({
+    greenHealthyPct: 92,
+    yellowChloroticPct: 5,
+    brownNecroticPct: 3,
+  });
+
+  // Step 3: Planting Age
+  const [plantingInputMode, setPlantingInputMode] = useState<'days' | 'date'>('days');
+  const [daysSincePlanting, setDaysSincePlanting] = useState<number>(48);
+  const [plantingDate, setPlantingDate] = useState<string>(
+    activeFarm.plantingDate || '2026-09-24'
+  );
+  const [recentlySprayedPesticide, setRecentlySprayedPesticide] = useState<boolean>(false);
+  const [recentPesticideName, setRecentPesticideName] = useState<string>('');
+
+  // GPS Detection State
+  const [gpsAvailable, setGpsAvailable] = useState<boolean>(true);
+  const [detectedDistrict, setDetectedDistrict] = useState<string>(activeFarm.district || 'Mardan');
 
   const [consentToShare] = useState<boolean>(true);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
@@ -83,133 +191,303 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
   const [pipelineStep, setPipelineStep] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGpsAvailable(true);
+          const { latitude, longitude } = pos.coords;
+          if (latitude >= 33.5 && latitude <= 35.5 && longitude >= 71.0 && longitude <= 73.0) {
+            if (longitude < 71.65) setDetectedDistrict('Peshawar');
+            else if (longitude < 71.88) setDetectedDistrict('Charsadda');
+            else if (latitude > 34.35) setDetectedDistrict('Malakand');
+            else if (longitude > 72.25) setDetectedDistrict('Swabi');
+            else setDetectedDistrict('Mardan');
+          }
+        },
+        () => {
+          setGpsAvailable(false);
+        },
+        { timeout: 3500 }
+      );
+    } else {
+      setGpsAvailable(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   /**
-   * Computes quantitative RGB + HSV leaf color biomarkers with Center-Weighted ROI sampling.
-   * Accurately detects tan/pinkish-brown necrotic wedges, dark blight rings, and yellow-green chlorotic halos
-   * without letting out-of-focus green background foliage mask leaf lesions.
+   * Computes quantitative RGB + HSV leaf color biomarkers AND Image Quality metrics.
+   * Properly prioritizes sunlit healthy green foliage (h: 58..172 where g > r) and filters out human hands/skin.
    */
-  const computeCanvasBiomarkers = (
+  const computeCanvasBiomarkersAndQuality = (
     ctx: CanvasRenderingContext2D,
     width: number,
-    height: number
-  ): LeafBiomarkers => {
+    height: number,
+    origWidth: number,
+    origHeight: number
+  ): { markers: LeafBiomarkers; quality: ImageQualityReport } => {
     try {
       const imgData = ctx.getImageData(0, 0, width, height).data;
       let greenScore = 0;
       let yellowScore = 0;
       let brownScore = 0;
+      let leafPixelCount = 0;
+      let totalSampledPixels = 0;
+      let luminanceSum = 0;
+      let edgeEnergySum = 0;
+      let edgeSamples = 0;
 
       const xMinCenter = width * 0.15;
       const xMaxCenter = width * 0.85;
       const yMinCenter = height * 0.15;
       const yMaxCenter = height * 0.85;
 
-      // Sample every 2nd pixel across 2D grid
-      for (let y = 0; y < height; y += 2) {
-        for (let x = 0; x < width; x += 2) {
+      const isGreenLeafAt = (px: number, py: number): boolean => {
+        if (px < 0 || px >= width || py < 0 || py >= height) return false;
+        const i = (py * width + px) * 4;
+        const pr = imgData[i];
+        const pg = imgData[i + 1];
+        const pb = imgData[i + 2];
+        return pg > 35 && pg >= pr * 0.90 && pg > pb * 1.08;
+      };
+
+      for (let y = 2; y < height - 2; y += 2) {
+        for (let x = 2; x < width - 2; x += 2) {
           const idx = (y * width + x) * 4;
           const r = imgData[idx];
           const g = imgData[idx + 1];
           const b = imgData[idx + 2];
 
+          totalSampledPixels++;
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          luminanceSum += lum;
+
+          const idxRight = (y * width + (x + 2)) * 4;
+          const idxDown = ((y + 2) * width + x) * 4;
+          const lumRight =
+            0.299 * imgData[idxRight] + 0.587 * imgData[idxRight + 1] + 0.114 * imgData[idxRight + 2];
+          const lumDown =
+            0.299 * imgData[idxDown] + 0.587 * imgData[idxDown + 1] + 0.114 * imgData[idxDown + 2];
+          edgeEnergySum += Math.abs(lum - lumRight) + Math.abs(lum - lumDown);
+          edgeSamples++;
+
           const { h, s, v } = rgbToHsv(r, g, b);
 
-          // Skip deep black shadows or pure white/gray plastic/sky background
-          if (v < 0.12 || (s < 0.10 && v > 0.72) || s < 0.07) continue;
+          // Ignore pure black borders, white sky/glare, or desaturated gray background
+          if (v < 0.06 || (s < 0.14 && v > 0.68) || s < 0.08) continue;
 
-          // Skip bright saturated red tomato fruit in background (top-right of greenhouse photos)
-          if ((h < 10 || h > 348) && s > 0.62 && v > 0.52 && r > g * 1.65) continue;
-
-          // Center-of-frame ROI weight (farmers hold the leaf in the center/lower-center)
           const inCenter =
             x >= xMinCenter && x <= xMaxCenter && y >= yMinCenter && y <= yMaxCenter;
-          const spatialWeight = inCenter ? 2.6 : 0.7;
+          const spatialWeight = inCenter ? 2.6 : 0.6;
 
-          // 1. Necrotic Brown / Tan / Dry Blight Wedge / Dark Concentric Spot
-          // Covers sunlit tan/pinkish-brown (R > G, H in 6..44 or 330..360 with moderate saturation)
-          // and dark necrotic brown/black lesions
-          const isTanOrBrown =
-            ((h >= 6 && h <= 44) || h >= 332) &&
-            s >= 0.10 &&
-            s <= 0.78 &&
-            v >= 0.14 &&
-            v <= 0.92 &&
-            r >= g * 1.04;
-          const isDarkLesion =
-            v >= 0.12 && v <= 0.40 && s >= 0.12 && r >= g * 0.92 && g <= b * 1.35;
-
-          // 2. Chlorotic Yellow / Yellow-Green Blight Halo
-          // Covers yellow (H 44..68) and yellowing chlorophyll transition (H 68..84 where R is close to G)
-          const isYellowHalo =
-            (h > 44 && h <= 78 && s >= 0.16 && v >= 0.32) ||
-            (h > 78 && h <= 88 && s >= 0.22 && v >= 0.45 && r >= g * 0.84 && b < g * 0.65);
-
-          // 3. Healthy Deep Chlorophyll Green
+          // 1. Check Healthy Green Foliage FIRST (includes sunlit lime-green leaf tissue where g >= r * 0.92)
           const isHealthyGreen =
-            h > 82 && h <= 165 && s >= 0.15 && v >= 0.18 && g > r * 1.12 && g > b * 1.18;
+            h >= 48 && h <= 175 && s >= 0.10 && v >= 0.14 && g >= r * 0.92 && g > b * 1.06;
 
-          if (isTanOrBrown || isDarkLesion) {
-            // Boost lesion focal weight so localized necrotic patches on a single leaf are never diluted
-            brownScore += spatialWeight * 1.85;
-          } else if (isYellowHalo) {
-            yellowScore += spatialWeight * 1.65;
-          } else if (isHealthyGreen) {
+          if (isHealthyGreen) {
             greenScore += spatialWeight;
+            leafPixelCount++;
+            continue;
+          }
+
+          // Check how many sides (Left, Right, Up, Down) within 8..24px have green leaf tissue
+          const hasGreenLeft =
+            isGreenLeafAt(x - 8, y) || isGreenLeafAt(x - 16, y) || isGreenLeafAt(x - 24, y);
+          const hasGreenRight =
+            isGreenLeafAt(x + 8, y) || isGreenLeafAt(x + 16, y) || isGreenLeafAt(x + 24, y);
+          const hasGreenUp =
+            isGreenLeafAt(x, y - 8) || isGreenLeafAt(x, y - 16) || isGreenLeafAt(x, y - 24);
+          const hasGreenDown =
+            isGreenLeafAt(x, y + 8) || isGreenLeafAt(x, y + 16) || isGreenLeafAt(x, y + 24);
+          const greenSides =
+            (hasGreenLeft ? 1 : 0) +
+            (hasGreenRight ? 1 : 0) +
+            (hasGreenUp ? 1 : 0) +
+            (hasGreenDown ? 1 : 0);
+
+          // 2. Filter out bright peach/pinkish human hand skin holding the leaf edge (never embedded on 2+ sides by green leaf)
+          const isBrightPeachSkin =
+            greenSides < 2 &&
+            v >= 0.46 &&
+            r >= 118 &&
+            g >= 75 &&
+            b >= 58 &&
+            r > g * 1.08 &&
+            b / r >= 0.38 &&
+            s <= 0.50;
+
+          if (isBrightPeachSkin) {
+            continue;
+          }
+
+          // 3. True Necrotic Brown / Dark Vein Blight / Leaf Spots on the leaf
+          const isNecroticColor =
+            ((h >= 0 && h <= 45) || h >= 330) &&
+            s >= 0.22 &&
+            v >= 0.06 &&
+            v <= 0.62 &&
+            r > g * 1.08 &&
+            r > b * 1.15;
+
+          const isTanOrBrown =
+            isNecroticColor && (greenSides >= 2 || (inCenter && greenSides >= 1 && (v <= 0.42 || s >= 0.45)));
+
+          // 4. True Chlorotic Yellow on the leaf
+          const isYellowHalo =
+            !isTanOrBrown &&
+            greenSides >= 1 &&
+            h >= 36 &&
+            h <= 56 &&
+            s >= 0.32 &&
+            v >= 0.38 &&
+            r > g * 1.04 &&
+            b < g * 0.65;
+
+          if (isTanOrBrown) {
+            // Amplify vein blight and leaf-embedded necrotic spots so narrow vein lesions are never diluted by background green
+            brownScore += spatialWeight * (greenSides >= 2 ? 3.4 : 2.0);
+            leafPixelCount++;
+          } else if (isYellowHalo) {
+            yellowScore += spatialWeight * 1.5;
+            leafPixelCount++;
           }
         }
       }
 
+      const avgLum = totalSampledPixels > 0 ? luminanceSum / totalSampledPixels : 128;
+      const lightingScore = Math.max(0, Math.min(100, Math.round((avgLum / 255) * 100)));
+      const avgEdge = edgeSamples > 0 ? edgeEnergySum / edgeSamples : 18;
+      const blurScore = Math.max(15, Math.min(98, Math.round(avgEdge * 3.8)));
+      const resolutionValid = origWidth >= 140 && origHeight >= 140;
+      const leafVisibilityPct =
+        totalSampledPixels > 0
+          ? Math.min(100, Math.max(20, Math.round((leafPixelCount / totalSampledPixels) * 155)))
+          : 80;
+
+      const rejectionReasons: string[] = [];
+      if (blurScore < 28) {
+        rejectionReasons.push(
+          language === 'ur'
+            ? 'تصویر دھندلی ہے — براہِ کرم کیمرہ مستحکم رکھیں اور پتے کی صاف تصویر لیں۔'
+            : language === 'ps'
+            ? 'انځور تت دی — مهرباني وکړئ کیمره کلکه ونیسئ او د پاڼې صفا انځور واخلئ.'
+            : 'Image is too blurry — please hold the camera steady and retake a clear leaf photo.'
+        );
+      }
+
+      const quality: ImageQualityReport = {
+        blurScore,
+        lightingScore,
+        resolutionValid,
+        leafVisibilityPct,
+        overlappingLeaves: false,
+        isAcceptable: rejectionReasons.length === 0,
+        rejectionReasons,
+      };
+
       const totalScore = greenScore + yellowScore + brownScore;
       if (totalScore < 25) {
-        return { greenHealthyPct: 62, yellowChloroticPct: 18, brownNecroticPct: 20 };
+        return {
+          markers: { greenHealthyPct: 94, yellowChloroticPct: 4, brownNecroticPct: 2 },
+          quality,
+        };
       }
 
       let greenHealthyPct = Math.round((greenScore / totalScore) * 100);
       let yellowChloroticPct = Math.round((yellowScore / totalScore) * 100);
       let brownNecroticPct = Math.max(0, 100 - greenHealthyPct - yellowChloroticPct);
 
-      // If substantial necrotic/chlorotic tissue was detected (>= 8% combined),
-      // ensure background greenery doesn't push greenHealthyPct into the Healthy (>85%) zone
-      if (brownNecroticPct + yellowChloroticPct >= 8 && greenHealthyPct > 76) {
-        const lesionRatio = brownNecroticPct / Math.max(1, brownNecroticPct + yellowChloroticPct);
-        greenHealthyPct = 64;
-        brownNecroticPct = Math.max(14, Math.round(36 * lesionRatio));
-        yellowChloroticPct = Math.max(10, 100 - greenHealthyPct - brownNecroticPct);
+      // If significant leaf-embedded necrotic pixels were detected (>= 6%), ensure they are not diluted by blurred green background
+      if (brownNecroticPct >= 6) {
+        brownNecroticPct = Math.max(brownNecroticPct, 16);
+        yellowChloroticPct = Math.max(yellowChloroticPct, 8);
+        greenHealthyPct = Math.max(0, 100 - brownNecroticPct - yellowChloroticPct);
+      } else if (brownNecroticPct <= 4 && yellowChloroticPct <= 12) {
+        // Truly clean, lesion-free green leaf
+        greenHealthyPct = Math.max(greenHealthyPct, 94);
+        brownNecroticPct = Math.min(brownNecroticPct, 2);
+        yellowChloroticPct = Math.max(0, 100 - greenHealthyPct - brownNecroticPct);
       }
 
-      return { greenHealthyPct, yellowChloroticPct, brownNecroticPct };
+      return {
+        markers: { greenHealthyPct, yellowChloroticPct, brownNecroticPct },
+        quality,
+      };
     } catch {
-      return { greenHealthyPct: 62, yellowChloroticPct: 18, brownNecroticPct: 20 };
+      return {
+        markers: { greenHealthyPct: 90, yellowChloroticPct: 6, brownNecroticPct: 4 },
+        quality: {
+          blurScore: 88,
+          lightingScore: 76,
+          resolutionValid: true,
+          leafVisibilityPct: 84,
+          overlappingLeaves: false,
+          isAcceptable: true,
+          rejectionReasons: [],
+        },
+      };
     }
   };
 
-  /**
-   * Automatically synchronizes visible symptom selection with extracted leaf biomarkers
-   * so uploading a diseased leaf NEVER retains a stale 'healthy_green' tag.
-   */
-  const syncSymptomsWithBiomarkers = (markers: LeafBiomarkers, crop: string) => {
-    if (
-      markers.greenHealthyPct >= 90 &&
-      markers.brownNecroticPct <= 3 &&
-      markers.yellowChloroticPct <= 5
-    ) {
-      setSelectedSymptoms(['healthy_green']);
-      return;
-    }
+  const computeAutoVisionPreview = (): AutoVisionPreview => {
+    const { greenHealthyPct, yellowChloroticPct, brownNecroticPct } = biomarkers;
+    const detectedCrop = selectedCrop;
+    const detectedSymptoms: string[] = [];
+    const internalSymptomKeys: string[] = [];
 
-    if (crop === 'Wheat' && markers.yellowChloroticPct >= markers.brownNecroticPct) {
-      setSelectedSymptoms(['yellow_powder']);
-    } else if (crop === 'Maize') {
-      setSelectedSymptoms(['long_tan_spots']);
+    if (brownNecroticPct <= 5 && yellowChloroticPct <= 14 && greenHealthyPct >= 82) {
+      detectedSymptoms.push('Healthy green foliage (No lesions)');
+      internalSymptomKeys.push('healthy_green');
     } else {
-      setSelectedSymptoms(['brown_spots']);
+      if (brownNecroticPct >= 8) {
+        detectedSymptoms.push('Brown lesions');
+        internalSymptomKeys.push('brown_spots');
+      }
+      if (brownNecroticPct >= 22) {
+        detectedSymptoms.push('Necrosis');
+      }
+      if (yellowChloroticPct >= 18 || brownNecroticPct >= 12) {
+        detectedSymptoms.push('Yellowing', 'Chlorosis');
+      }
+      if (detectedCrop === 'Wheat') {
+        internalSymptomKeys.push('yellow_powder');
+      } else if (detectedCrop === 'Maize') {
+        internalSymptomKeys.push('long_tan_spots');
+      }
+      if (detectedSymptoms.length === 0) {
+        detectedSymptoms.push('Healthy green foliage');
+        internalSymptomKeys.push('healthy_green');
+      }
     }
+
+    const affectedLeafPct = Math.max(0, Math.min(100, yellowChloroticPct + brownNecroticPct));
+    let severity: 'Healthy' | 'Mild' | 'Moderate' | 'Severe' = 'Healthy';
+    if (brownNecroticPct <= 5 && yellowChloroticPct <= 14 && greenHealthyPct >= 82) {
+      severity = 'Healthy';
+    } else if (affectedLeafPct <= 18) {
+      severity = 'Mild';
+    } else if (affectedLeafPct <= 38) {
+      severity = 'Moderate';
+    } else {
+      severity = 'Severe';
+    }
+
+    return {
+      detectedCrop,
+      cropConfidence: 100,
+      severity,
+      affectedLeafPct,
+      detectedSymptoms,
+      internalSymptomKeys,
+    };
   };
 
-  // Compress uploaded photos on client canvas so 10MB+ mobile photos become ~60KB and never hang
-  const compressImageFile = (file: File): Promise<{ dataUrl: string; markers: LeafBiomarkers }> => {
+  const compressImageFile = (
+    file: File
+  ): Promise<{ dataUrl: string; markers: LeafBiomarkers; quality: ImageQualityReport }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('Could not read file'));
@@ -219,12 +497,23 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
         img.onerror = () =>
           resolve({
             dataUrl: rawDataUrl,
-            markers: { greenHealthyPct: 62, yellowChloroticPct: 18, brownNecroticPct: 20 },
+            markers: { greenHealthyPct: 90, yellowChloroticPct: 6, brownNecroticPct: 4 },
+            quality: {
+              blurScore: 88,
+              lightingScore: 76,
+              resolutionValid: true,
+              leafVisibilityPct: 84,
+              overlappingLeaves: false,
+              isAcceptable: true,
+              rejectionReasons: [],
+            },
           });
         img.onload = () => {
+          const origWidth = img.width || 640;
+          const origHeight = img.height || 480;
           const maxDim = 768;
-          let width = img.width || 640;
-          let height = img.height || 480;
+          let width = origWidth;
+          let height = origHeight;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -240,12 +529,27 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const markers = computeCanvasBiomarkers(ctx, width, height);
-            resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.85), markers });
+            const { markers, quality } = computeCanvasBiomarkersAndQuality(
+              ctx,
+              width,
+              height,
+              origWidth,
+              origHeight
+            );
+            resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.85), markers, quality });
           } else {
             resolve({
               dataUrl: rawDataUrl,
-              markers: { greenHealthyPct: 62, yellowChloroticPct: 18, brownNecroticPct: 20 },
+              markers: { greenHealthyPct: 90, yellowChloroticPct: 6, brownNecroticPct: 4 },
+              quality: {
+                blurScore: 88,
+                lightingScore: 76,
+                resolutionValid: true,
+                leafVisibilityPct: 84,
+                overlappingLeaves: false,
+                isAcceptable: true,
+                rejectionReasons: [],
+              },
             });
           }
         };
@@ -269,13 +573,10 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
 
     setErrorMessage(null);
     try {
-      const { dataUrl, markers } = await compressImageFile(file);
+      const { dataUrl, markers, quality } = await compressImageFile(file);
       setSelectedImage(dataUrl);
       setBiomarkers(markers);
-      setSelectedSampleId('');
-      setIsCustomUpload(true);
-      setShowSamplesWhenUploaded(false);
-      syncSymptomsWithBiomarkers(markers, selectedCrop);
+      setImageQuality(quality);
     } catch {
       setErrorMessage('Could not load photo.');
     }
@@ -311,10 +612,10 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
     } catch {
       setErrorMessage(
         language === 'ur'
-          ? 'کیمرہ نہیں چل سکا۔ براہ کرم تصویر اپلوڈ کریں یا نیچے دی گئی تصویر منتخب کریں۔'
+          ? 'کیمرہ دستیاب نہیں ہے۔ براہ کرم موبائل سے پتے کی تصویر اپلوڈ کریں۔'
           : language === 'ps'
-          ? 'کیمره خلاصه نه شوه. مهرباني وکړئ انځور اپلوډ کړئ.'
-          : 'Camera unavailable. Please upload a photo or tap a sample leaf below.'
+          ? 'کیمره خلاصه نه شوه. مهرباني وکړئ له موبایل نه د پاڼې انځور اپلوډ کړئ.'
+          : 'Camera unavailable. Please upload a leaf photo from your device.'
       );
       setIsCameraActive(false);
     }
@@ -328,14 +629,17 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const markers = computeCanvasBiomarkers(ctx, canvas.width, canvas.height);
+      const { markers, quality } = computeCanvasBiomarkersAndQuality(
+        ctx,
+        canvas.width,
+        canvas.height,
+        canvas.width,
+        canvas.height
+      );
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setSelectedImage(dataUrl);
       setBiomarkers(markers);
-      setSelectedSampleId('');
-      setIsCustomUpload(true);
-      setShowSamplesWhenUploaded(false);
-      syncSymptomsWithBiomarkers(markers, selectedCrop);
+      setImageQuality(quality);
       stopCamera();
     }
   };
@@ -348,70 +652,17 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
     setIsCameraActive(false);
   };
 
-  const selectSample = (sample: SampleCropImage) => {
-    setSelectedImage(sample.dataUrl);
-    setSelectedSampleId(sample.id);
-    setSelectedCrop(sample.crop);
-    setIsCustomUpload(false);
-    setErrorMessage(null);
+  const visionPreview = computeAutoVisionPreview();
 
-    if (sample.id.includes('healthy')) {
-      setSelectedSymptoms(['healthy_green']);
-      setBiomarkers({ greenHealthyPct: 96, yellowChloroticPct: 3, brownNecroticPct: 1 });
-    } else if (sample.id.includes('wheat')) {
-      setSelectedSymptoms(['yellow_powder']);
-      setBiomarkers({ greenHealthyPct: 62, yellowChloroticPct: 31, brownNecroticPct: 7 });
-    } else if (sample.id.includes('maize')) {
-      setSelectedSymptoms(['long_tan_spots']);
-      setBiomarkers({ greenHealthyPct: 65, yellowChloroticPct: 12, brownNecroticPct: 23 });
-    } else {
-      setSelectedSymptoms(['brown_spots']);
-      setBiomarkers({ greenHealthyPct: 60, yellowChloroticPct: 18, brownNecroticPct: 22 });
-    }
-  };
-
-  const handleCropChange = (newCrop: string) => {
-    setSelectedCrop(newCrop);
-    // Keep symptoms aligned with the selected crop if not healthy
-    if (!selectedSymptoms.includes('healthy_green')) {
-      if (newCrop === 'Wheat') {
-        setSelectedSymptoms(['yellow_powder']);
-      } else if (newCrop === 'Maize') {
-        setSelectedSymptoms(['long_tan_spots']);
-      } else {
-        setSelectedSymptoms(['brown_spots']);
-      }
-    }
-  };
-
-  const toggleSymptom = (symptomKey: string) => {
-    if (symptomKey === 'healthy_green') {
-      setSelectedSymptoms(['healthy_green']);
-      if (!isCustomUpload) {
-        setBiomarkers({ greenHealthyPct: 95, yellowChloroticPct: 3, brownNecroticPct: 2 });
-      }
-      return;
-    }
-
-    // Selecting any disease symptom automatically clears 'healthy_green'
-    setSelectedSymptoms((prev) => {
-      const withoutHealthy = prev.filter((k) => k !== 'healthy_green');
-      const exists = withoutHealthy.includes(symptomKey);
-      const next = exists
-        ? withoutHealthy.filter((k) => k !== symptomKey)
-        : [...withoutHealthy, symptomKey];
-      return next.length > 0 ? next : [symptomKey];
-    });
-
-    // Ensure biomarkers reflect disease lesions if user previously clicked the healthy sample
-    if (selectedSampleId.includes('healthy')) {
-      setSelectedSampleId('');
-      setBiomarkers({ greenHealthyPct: 62, yellowChloroticPct: 18, brownNecroticPct: 20 });
-    }
-  };
+  const { cropAgeDays, estimatedGrowthStage } = calculateCropAgeAndGrowthStage(
+    selectedCrop,
+    plantingInputMode,
+    daysSincePlanting,
+    plantingDate
+  );
 
   const runAnalysis = async () => {
-    if (!selectedImage) return;
+    if (!selectedImage || !imageQuality.isAcceptable) return;
 
     setIsAnalyzing(true);
     setPipelineStep(1);
@@ -423,7 +674,7 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    const clientTimeout = setTimeout(() => controller.abort(), 10000);
+    const clientTimeout = setTimeout(() => controller.abort(), 25000);
 
     try {
       const response = await fetch('/api/v1/diagnosis', {
@@ -431,11 +682,18 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64: selectedImage,
-          sampleId: isCustomUpload ? '' : selectedSampleId,
+          sampleId: '',
           cropHint: selectedCrop,
-          symptoms: selectedSymptoms,
+          consensusTestMode: 'AUTO',
+          plantingDate: plantingInputMode === 'date' ? plantingDate : undefined,
+          daysSincePlanting: cropAgeDays,
+          recentlySprayedPesticide,
+          recentPesticideName: recentlySprayedPesticide ? recentPesticideName : '',
+          growthStage: estimatedGrowthStage,
+          symptoms: visionPreview.internalSymptomKeys,
           biomarkers,
-          district: activeFarm.district,
+          imageQuality,
+          district: detectedDistrict || activeFarm.district,
           village: activeFarm.village,
           consentToShare,
         }),
@@ -465,14 +723,29 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
       clearTimeout(clientTimeout);
       clearInterval(stepInterval);
       setIsAnalyzing(false);
-      setErrorMessage(
-        err?.message ||
-          (language === 'ur'
-            ? 'معائنہ مکمل نہیں ہو سکا۔ دوبارہ کوشش کریں۔'
+
+      const isAbort =
+        err?.name === 'AbortError' ||
+        String(err?.message || '').toLowerCase().includes('aborted');
+
+      if (isAbort) {
+        setErrorMessage(
+          language === 'ur'
+            ? 'سرور سے جواب میں زیادہ وقت لگا۔ براہ کرم دوبارہ کوشش کریں۔'
             : language === 'ps'
-            ? 'کتنه بشپړه نه شوه. بیا هڅه وکړئ.'
-            : 'Diagnosis request failed. Please try again.')
-      );
+            ? 'د سرور نه ځواب وځنډېد. مهرباني وکړئ بیا هڅه وکړئ.'
+            : 'Diagnosis request timed out. Please try again.'
+        );
+      } else {
+        setErrorMessage(
+          err?.message ||
+            (language === 'ur'
+              ? 'معائنہ مکمل نہیں ہو سکا۔ دوبارہ کوشش کریں۔'
+              : language === 'ps'
+              ? 'کتنه بشپړه نه شوه. بیا هڅه وکړئ.'
+              : 'Diagnosis request failed. Please try again.')
+        );
+      }
     }
   };
 
@@ -486,68 +759,51 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
     onClose();
   };
 
-  const getSampleLocalizedLabel = (sample: SampleCropImage) => {
+  const getLocalizedStageName = (stage: string) => {
     if (language === 'ur') {
-      if (sample.id.includes('wheat')) return { title: 'گندم کا نمونہ', sub: 'پیلی کنگی (زرد رسٹ)' };
-      if (sample.id.includes('maize')) return { title: 'مکئی کا نمونہ', sub: 'پتوں کے لمبے دھبے' };
-      if (sample.id.includes('healthy')) return { title: 'صحت مند نمونہ', sub: 'بغیر کسی بیماری کے' };
-      return { title: 'ٹماٹر کا جھلساؤ', sub: 'اصلی کھیت کی تصویر' };
+      if (stage === 'Seedling') return 'ابتدائی پنیری (Seedling)';
+      if (stage === 'Vegetative') return 'بڑھوتری کا مرحلہ (Vegetative)';
+      if (stage === 'Flowering') return 'پھول آنے کا مرحلہ (Flowering)';
+      if (stage === 'Fruiting') return 'پھل بننے کا مرحلہ (Fruiting)';
+      return 'کٹائی کے قریب (Harvest)';
     }
     if (language === 'ps') {
-      if (sample.id.includes('wheat')) return { title: 'د غنمو نمونه', sub: 'ژړ زنګ' };
-      if (sample.id.includes('maize')) return { title: 'د جوارو نمونه', sub: 'د پاڼو داغونه' };
-      if (sample.id.includes('healthy')) return { title: 'روغه پاڼه (نمونه)', sub: 'هیڅ ناروغي نشته' };
-      return { title: 'د رومیانو بلایټ', sub: 'د پټي اصلي انځور' };
+      if (stage === 'Seedling') return 'کوچنی بوټی (Seedling)';
+      if (stage === 'Vegetative') return 'د ودې مرحله (Vegetative)';
+      if (stage === 'Flowering') return 'د ګل نیولو وخت (Flowering)';
+      if (stage === 'Fruiting') return 'د مېوې نیولو وخت (Fruiting)';
+      return 'د حاصل ټولولو وخت (Harvest)';
     }
-    return { title: sample.crop, sub: sample.suspectedCondition };
+    return stage;
   };
-
-  const symptomOptions = [
-    {
-      key: 'brown_spots',
-      ur: 'بھورے داغ / جھلساؤ (Blight)',
-      ps: 'نصواري داغونه / سوځېدنه',
-      en: 'Brown blight / target spots',
-    },
-    {
-      key: 'yellow_powder',
-      ur: 'پیلی دھاریاں / پاؤڈر',
-      ps: 'ژړې کرښې / پوډر',
-      en: 'Yellow stripe powder',
-    },
-    {
-      key: 'long_tan_spots',
-      ur: 'لمبے خاکی دھبے',
-      ps: 'اوږده خړ داغونه',
-      en: 'Long tan lesions',
-    },
-    {
-      key: 'healthy_green',
-      ur: 'بالکل صاف اور سبز (کوئی داغ نہیں)',
-      ps: 'بالکل شنه او پاکه',
-      en: 'Clean green leaf (no spots)',
-    },
-  ];
 
   return (
     <div
       className="fixed inset-0 z-50 bg-[#17231F]/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={handleClose}
     >
-      {/* Bounded Flex-Col Sheet: Header is ALWAYS pinned at top & Close button is ALWAYS visible */}
       <div
-        className="w-full max-w-xl max-h-[92dvh] sm:max-h-[88dvh] bg-white rounded-t-[24px] sm:rounded-[24px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden animate-card-fade"
+        className="w-full max-w-xl max-h-[92dvh] sm:max-h-[90dvh] bg-white rounded-t-[24px] sm:rounded-[24px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden animate-card-fade"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Pinned Top Modal Bar with High-Contrast Close Button */}
+        {/* Pinned Top Modal Bar */}
         <div className="shrink-0 px-6 py-4 bg-[#0A4D36] text-white flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-[14px] bg-[#F6B81A] text-[#17231F] flex items-center justify-center shrink-0">
               <Camera className="w-5 h-5" />
             </div>
-            <h2 className="text-[20px] font-bold text-white truncate">
-              {t.scanModalTitle}
-            </h2>
+            <div className="min-w-0">
+              <h2 className="text-[19px] font-bold text-white truncate">
+                {t.scanModalTitle}
+              </h2>
+              <p className="text-[12px] text-white/80 truncate">
+                {language === 'ur'
+                  ? 'پتے کی تصویر لگائیں اور اپنی فصل منتخب کریں'
+                  : language === 'ps'
+                  ? 'د پاڼې انځور اپلوډ کړئ او خپل فصل وټاکئ'
+                  : 'Upload a leaf photo and select your crop'}
+              </p>
+            </div>
           </div>
 
           <button
@@ -563,8 +819,8 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Body with 8-point spacing (24px) */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F7F8F6]">
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-[#F7F8F6]">
           {errorMessage && (
             <div className="p-4 bg-[#FEF2F2] rounded-[16px] flex items-start gap-3 text-[#E53935] text-[14px] font-normal">
               <AlertCircle className="w-5 h-5 shrink-0 text-[#E53935] mt-0.5" />
@@ -607,255 +863,440 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
             </div>
           ) : (
             <>
-              {/* Camera / Photo Preview with Drag & Drop and Click-to-Upload */}
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={handleDrop}
-                className="relative rounded-[20px] bg-[#17231F] overflow-hidden flex flex-col items-center justify-center min-h-[220px] shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
-              >
-                {isCameraActive ? (
-                  <div className="relative w-full h-64 bg-black flex items-center justify-center">
-                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              {/* STEP 1: Upload / Capture Leaf Image (Dummy Leaf Icon Placeholder when no image is uploaded) */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-bold text-[#0F6B4B] uppercase tracking-wider">
+                    {language === 'ur'
+                      ? 'مرحلہ ۱: پتے کی تصویر اپلوڈ کریں'
+                      : language === 'ps'
+                      ? '۱ مرحله: د پاڼې انځور اپلوډ کړئ'
+                      : 'Step 1: Upload Plant Leaf Image'}
+                  </span>
+                  {selectedImage && (
                     <button
-                      onClick={capturePhoto}
-                      className="absolute bottom-4 min-h-[56px] px-6 py-3 rounded-[16px] bg-[#F6B81A] hover:bg-[#e5a912] text-[#17231F] font-semibold text-[16px] shadow-[0_8px_24px_rgba(0,0,0,0.2)] flex items-center gap-2 cursor-pointer"
+                      type="button"
+                      onClick={() => setSelectedImage(null)}
+                      className="text-[12px] font-semibold text-[#E53935] hover:underline cursor-pointer"
                     >
-                      <Camera className="w-5 h-5" />
-                      <span>{t.takePhoto}</span>
+                      {language === 'ur' ? 'تصویر ہٹائیں' : language === 'ps' ? 'انځور لرې کړئ' : 'Remove Photo'}
                     </button>
-                  </div>
-                ) : selectedImage ? (
-                  <div className="relative w-full h-56 sm:h-64 bg-[#17231F] flex items-center justify-center">
-                    <img
-                      src={selectedImage}
-                      alt="Crop Leaf Preview"
-                      referrerPolicy="no-referrer"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="max-h-full max-w-full object-contain cursor-pointer"
-                    />
-                    <div className="absolute bottom-3 inset-x-4 flex items-center justify-center gap-3">
+                  )}
+                </div>
+
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={handleDrop}
+                  className="relative rounded-[20px] bg-[#17231F] overflow-hidden flex flex-col items-center justify-center min-h-[220px] shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                >
+                  {isCameraActive ? (
+                    <div className="relative w-full h-60 bg-black flex items-center justify-center">
+                      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
                       <button
-                        type="button"
-                        onClick={startCamera}
-                        className="min-h-[48px] px-5 py-2.5 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[14px] flex items-center gap-2 shadow-md cursor-pointer"
+                        onClick={capturePhoto}
+                        className="absolute bottom-4 min-h-[52px] px-6 py-3 rounded-[16px] bg-[#F6B81A] hover:bg-[#e5a912] text-[#17231F] font-semibold text-[16px] shadow-[0_8px_24px_rgba(0,0,0,0.2)] flex items-center gap-2 cursor-pointer"
                       >
-                        <Camera className="w-4 h-4 text-[#F6B81A]" />
+                        <Camera className="w-5 h-5" />
                         <span>{t.takePhoto}</span>
                       </button>
-                      <button
-                        type="button"
+                    </div>
+                  ) : selectedImage ? (
+                    <div className="relative w-full h-56 sm:h-64 bg-[#17231F] flex items-center justify-center">
+                      <img
+                        src={selectedImage}
+                        alt="Uploaded Crop Leaf"
+                        referrerPolicy="no-referrer"
                         onClick={() => fileInputRef.current?.click()}
-                        className="min-h-[48px] px-5 py-2.5 rounded-[16px] bg-[#F6B81A] hover:bg-[#e5a912] text-[#17231F] font-bold text-[14px] flex items-center gap-2 shadow-md cursor-pointer"
+                        className="max-h-full max-w-full object-contain cursor-pointer transition-all"
+                      />
+                      <div className="absolute bottom-3 inset-x-4 flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="min-h-[46px] px-5 py-2 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[14px] flex items-center gap-2 shadow-md cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4 text-[#F6B81A]" />
+                          <span>{t.takePhoto}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="min-h-[46px] px-5 py-2 rounded-[16px] bg-[#F6B81A] hover:bg-[#e5a912] text-[#17231F] font-bold text-[14px] flex items-center gap-2 shadow-md cursor-pointer"
+                        >
+                          <Upload className="w-4 h-4 text-[#17231F]" />
+                          <span>{t.uploadImage}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Clean Dummy Leaf Icon Placeholder when no photo is uploaded yet */
+                    <div className="w-full py-8 px-6 flex flex-col items-center justify-center text-center space-y-4">
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-20 h-20 rounded-full bg-[#0F6B4B]/30 border-2 border-dashed border-[#0F6B4B] flex items-center justify-center text-[#F6B81A] cursor-pointer hover:bg-[#0F6B4B]/45 transition-all"
                       >
-                        <Upload className="w-4 h-4 text-[#17231F]" />
-                        <span>{t.uploadImage}</span>
-                      </button>
+                        <Sprout className="w-10 h-10" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[16px] font-bold text-white">
+                          {language === 'ur'
+                            ? 'یہاں پتے کی صاف تصویر لگائیں'
+                            : language === 'ps'
+                            ? 'دلته د پاڼې صفا انځور ولګوئ'
+                            : 'Upload or Capture a Leaf Photo Here'}
+                        </p>
+                        <p className="text-[12px] text-white/65">
+                          {language === 'ur'
+                            ? 'ابھی کوئی تصویر منتخب نہیں ہے — نیچے بٹن دبائیں'
+                            : language === 'ps'
+                            ? 'تراوسه هیڅ انځور نه دی غوره شوی — لاندې بټن کېکاږئ'
+                            : 'No leaf image uploaded yet — tap a button below'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="min-h-[48px] px-5 py-2.5 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[14px] flex items-center gap-2 shadow-md cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4 text-[#F6B81A]" />
+                          <span>{t.takePhoto}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="min-h-[48px] px-5 py-2.5 rounded-[16px] bg-[#F6B81A] hover:bg-[#e5a912] text-[#17231F] font-bold text-[14px] flex items-center gap-2 shadow-md cursor-pointer"
+                        >
+                          <Upload className="w-4 h-4 text-[#17231F]" />
+                          <span>{t.uploadImage}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+
+              {selectedImage && !imageQuality.isAcceptable ? (
+                <div className="p-5 rounded-[20px] bg-[#FEF2F2] border-2 border-[#E53935] space-y-4">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="w-6 h-6 text-[#E53935] shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h3 className="text-[16px] font-bold text-[#991B1B]">
+                        {language === 'ur'
+                          ? 'تصویر صاف نہیں ہے — براہِ کرم دوبارہ تصویر لیں'
+                          : language === 'ps'
+                          ? 'انځور صفا نه دی — مهرباني وکړئ بل صفا انځور واخلئ'
+                          : 'Image Not Clear — Please Retake Photo'}
+                      </h3>
+                      <p className="text-[13px] text-[#7F1D1D]">
+                        {imageQuality.rejectionReasons[0]}
+                      </p>
                     </div>
                   </div>
-                ) : null}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </div>
 
-              {/* Live Pixel Biomarker Detection Strip */}
-              <div className="p-4 rounded-[16px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-[13px] font-semibold text-[#17231F]">
-                  <CheckCircle2 className="w-4 h-4 text-[#0F6B4B] shrink-0" />
-                  <span>
-                    {isCustomUpload
-                      ? language === 'ur'
-                        ? 'آپ کی اپلوڈ کردہ تصویر تیار ہے'
-                        : language === 'ps'
-                        ? 'ستاسو اپلوډ شوی انځور چمتو دی'
-                        : 'Your uploaded leaf photo is ready'
-                      : language === 'ur'
-                      ? 'منتخب تصویر کا تجزیہ:'
-                      : language === 'ps'
-                      ? 'د ټاکل شوي انځور تحلیل:'
-                      : 'Detected Leaf Color Profile:'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-[12px] font-semibold tabular-nums">
-                  <span className="text-[#0F6B4B]">🟢 {biomarkers.greenHealthyPct}%</span>
-                  <span className="text-[#D97706]">🟡 {biomarkers.yellowChloroticPct}%</span>
-                  <span className="text-[#E53935]">🔴 {biomarkers.brownNecroticPct}%</span>
-                </div>
-              </div>
-
-              {/* 1-Tap Sample Leaf Selector — Collapsed automatically when farmer uploads their own photo so they never overwrite it by mistake */}
-              <div className="space-y-3">
-                {isCustomUpload ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowSamplesWhenUploaded((prev) => !prev)}
-                    className="w-full min-h-[44px] px-4 py-2 rounded-[14px] bg-white text-[#6B7280] hover:text-[#17231F] text-[13px] font-semibold flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,0.04)] cursor-pointer"
-                  >
-                    <span>
-                      {language === 'ur'
-                        ? 'یا ٹیسٹ کے لیے نمونے کی تصاویر دیکھیں'
-                        : language === 'ps'
-                        ? 'یا د ازموینې لپاره نمونې وګورئ'
-                        : 'Or switch to a sample test image'}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${
-                        showSamplesWhenUploaded ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                ) : (
-                  <label className="text-[13px] font-semibold text-[#6B7280] block">
-                    {t.useSampleImage}
-                  </label>
-                )}
-
-                {(!isCustomUpload || showSamplesWhenUploaded) && (
-                  <div className="grid grid-cols-2 gap-4">
-                    {SAMPLE_CROP_IMAGES.map((sample) => {
-                      const lbl = getSampleLocalizedLabel(sample);
-                      const isSelected = !isCustomUpload && selectedSampleId === sample.id;
-                      return (
-                        <button
-                          key={sample.id}
-                          type="button"
-                          onClick={() => selectSample(sample)}
-                          className={`p-3 rounded-[20px] text-start transition-all flex flex-col justify-between cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#0F6B4B] text-white shadow-[0_8px_24px_rgba(15,107,75,0.22)]'
-                              : 'bg-white text-[#17231F] shadow-[0_4px_14px_rgba(0,0,0,0.05)] hover:bg-[#EBF5F0]/50'
-                          }`}
-                        >
-                          <img
-                            src={sample.dataUrl}
-                            alt={lbl.title}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-24 rounded-[14px] object-cover mb-2.5"
-                          />
-                          <div className="flex items-center justify-between gap-2 w-full">
-                            <div className="min-w-0">
-                              <div
-                                className={`font-semibold text-[15px] leading-snug truncate ${
-                                  isSelected ? 'text-white' : 'text-[#17231F]'
-                                }`}
-                              >
-                                {lbl.title}
-                              </div>
-                              <div
-                                className={`text-[13px] font-normal truncate mt-0.5 ${
-                                  isSelected ? 'text-white/85' : 'text-[#6B7280]'
-                                }`}
-                              >
-                                {lbl.sub}
-                              </div>
-                            </div>
-                            {isSelected && (
-                              <div className="w-6 h-6 rounded-full bg-[#F6B81A] text-[#17231F] flex items-center justify-center shrink-0">
-                                <Check className="w-4 h-4 stroke-[2.5]" />
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="min-h-[46px] px-5 py-2.5 rounded-[14px] bg-[#E53935] hover:bg-[#B91C1C] text-white font-bold text-[14px] flex items-center gap-2 cursor-pointer"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>
+                        {language === 'ur'
+                          ? 'صاف تصویر دوبارہ اپلوڈ کریں'
+                          : language === 'ps'
+                          ? 'صفا انځور بیا اپلوډ کړئ'
+                          : 'Retake / Upload Clear Leaf Image'}
+                      </span>
+                    </button>
                   </div>
-                )}
-              </div>
-
-              {/* Step A: Select Crop — Strong Solid Green Fill when Selected */}
-              <div className="space-y-2">
-                <label className="block text-[13px] font-semibold text-[#6B7280]">
-                  {t.selectCropLabel}
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { val: 'Tomato', ur: 'ٹماٹر', ps: 'رومیان', en: 'Tomato' },
-                    { val: 'Wheat', ur: 'گندم', ps: 'غنم', en: 'Wheat' },
-                    { val: 'Maize', ur: 'مکئی', ps: 'جوار', en: 'Maize' },
-                  ].map((c) => {
-                    const isSelected = selectedCrop === c.val;
-                    return (
-                      <button
-                        key={c.val}
-                        type="button"
-                        onClick={() => handleCropChange(c.val)}
-                        className={`min-h-[56px] rounded-[16px] font-semibold text-[16px] transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#0F6B4B] text-white shadow-[0_6px_16px_rgba(15,107,75,0.22)]'
-                            : 'bg-white text-[#17231F] shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:bg-[#EBF5F0]'
-                        }`}
-                      >
-                        {language === 'ur' ? c.ur : language === 'ps' ? c.ps : c.en}
-                      </button>
-                    );
-                  })}
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* STEP 2: User Selects the Crop */}
+                  <div className="p-5 rounded-[20px] bg-white shadow-[0_6px_20px_rgba(0,0,0,0.05)] space-y-3.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[18px]">🌱</span>
+                        <h3 className="text-[15px] font-bold text-[#17231F]">
+                          {language === 'ur'
+                            ? 'مرحلہ ۲: فصل منتخب کریں'
+                            : language === 'ps'
+                            ? '۲ مرحله: خپل فصل وټاکئ'
+                            : 'Step 2: Select Your Crop'}
+                        </h3>
+                      </div>
+                    </div>
 
-              {/* Step B: Disease Confirmation — Strong Solid Green Fill instead of Thin Border */}
-              <div className="space-y-2">
-                <label className="block text-[13px] font-semibold text-[#6B7280]">
-                  {language === 'ur'
-                    ? 'پتے پر کیا نظر آ رہا ہے؟ (نشان لگائیں)'
-                    : language === 'ps'
-                    ? 'په پاڼه څه لیدل کیږي؟ (انتخاب کړئ)'
-                    : 'Visible signs on leaf:'}
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {symptomOptions.map((sym) => {
-                    const active = selectedSymptoms.includes(sym.key);
-                    return (
+                    <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+                      {(
+                        [
+                          { id: 'Tomato', icon: '🍅', ur: 'ٹماٹر', ps: 'ټماټر' },
+                          { id: 'Potato', icon: '🥔', ur: 'آلو', ps: 'الوګان' },
+                          { id: 'Wheat', icon: '🌾', ur: 'گندم', ps: 'غنم' },
+                          { id: 'Maize', icon: '🌽', ur: 'مکئی', ps: 'جوار' },
+                          { id: 'Chili', icon: '🌶️', ur: 'مرچ', ps: 'مرچک' },
+                          { id: 'Cotton', icon: '🌿', ur: 'کپاس', ps: 'پنبه' },
+                          { id: 'Onion', icon: '🧅', ur: 'پیاز', ps: 'پیاز' },
+                        ] as const
+                      ).map((cropItem) => {
+                        const isSelected = selectedCrop === cropItem.id;
+                        return (
+                          <button
+                            key={cropItem.id}
+                            type="button"
+                            onClick={() => setSelectedCrop(cropItem.id)}
+                            className={`min-h-[54px] px-2.5 py-2 rounded-[14px] font-bold text-[13px] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#0F6B4B] text-white shadow-[0_6px_16px_rgba(15,107,75,0.24)]'
+                                : 'bg-[#F7F8F6] text-[#17231F] hover:bg-[#EBF5F0]'
+                            }`}
+                          >
+                            <span className="text-[16px] leading-none">{cropItem.icon}</span>
+                            <span className="truncate">
+                              {language === 'ur'
+                                ? cropItem.ur
+                                : language === 'ps'
+                                ? cropItem.ps
+                                : cropItem.id}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* STEP 3: Ask "How many days ago was this crop planted?" */}
+                  <div className="p-5 rounded-[20px] bg-white shadow-[0_6px_20px_rgba(0,0,0,0.05)] space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-[#0F6B4B]" />
+                      <h3 className="text-[15px] font-bold text-[#17231F]">
+                        {language === 'ur'
+                          ? 'مرحلہ ۳: یہ فصل کتنے دن پہلے لگائی گئی تھی؟'
+                          : language === 'ps'
+                          ? '۳ مرحله: دا فصل څو ورځې مخکې کرل شوی و؟'
+                          : 'Step 3: How Many Days Ago Was This Crop Planted?'}
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 p-1.5 bg-[#F7F8F6] rounded-[14px]">
                       <button
-                        key={sym.key}
                         type="button"
-                        onClick={() => toggleSymptom(sym.key)}
-                        className={`min-h-[56px] px-4 py-3 rounded-[16px] text-[15px] font-semibold flex items-center justify-between gap-3 transition-all cursor-pointer ${
-                          active
-                            ? 'bg-[#0F6B4B] text-white shadow-[0_6px_16px_rgba(15,107,75,0.22)]'
-                            : 'bg-white text-[#17231F] shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:bg-[#EBF5F0]'
+                        onClick={() => setPlantingInputMode('days')}
+                        className={`min-h-[42px] rounded-[10px] text-[13px] font-bold transition-all cursor-pointer ${
+                          plantingInputMode === 'days'
+                            ? 'bg-[#0F6B4B] text-white shadow-xs'
+                            : 'text-[#6B7280] hover:text-[#17231F]'
                         }`}
                       >
-                        <span className="truncate">
-                          {language === 'ur' ? sym.ur : language === 'ps' ? sym.ps : sym.en}
-                        </span>
-                        <div
-                          className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                            active ? 'bg-[#F6B81A] text-[#17231F]' : 'bg-[#F7F8F6] text-transparent'
-                          }`}
-                        >
-                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        {language === 'ur'
+                          ? 'کاشت کے بعد کے دن (Days)'
+                          : language === 'ps'
+                          ? 'د کرلو ورځې (Days)'
+                          : 'Days Since Planting'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlantingInputMode('date')}
+                        className={`min-h-[42px] rounded-[10px] text-[13px] font-bold transition-all cursor-pointer ${
+                          plantingInputMode === 'date'
+                            ? 'bg-[#0F6B4B] text-white shadow-xs'
+                            : 'text-[#6B7280] hover:text-[#17231F]'
+                        }`}
+                      >
+                        {language === 'ur'
+                          ? 'کاشت کی تاریخ (Date)'
+                          : language === 'ps'
+                          ? 'د کرلو نېټه (Date)'
+                          : 'Planting Date'}
+                      </button>
+                    </div>
+
+                    {plantingInputMode === 'days' ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min={1}
+                            max={240}
+                            value={daysSincePlanting}
+                            onChange={(e) =>
+                              setDaysSincePlanting(Math.max(1, Number(e.target.value) || 1))
+                            }
+                            className="w-28 min-h-[48px] px-4 rounded-[14px] bg-[#F7F8F6] text-[#17231F] font-bold text-[16px] outline-none focus:ring-2 focus:ring-[#0F6B4B]"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            {[18, 35, 50, 75, 100].map((d) => (
+                              <button
+                                key={d}
+                                type="button"
+                                onClick={() => setDaysSincePlanting(d)}
+                                className={`px-3 py-2 rounded-[12px] text-[13px] font-bold transition-colors cursor-pointer ${
+                                  daysSincePlanting === d
+                                    ? 'bg-[#0F6B4B] text-white'
+                                    : 'bg-[#F7F8F6] text-[#17231F] hover:bg-[#EBF5F0]'
+                                }`}
+                              >
+                                {d}d
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="date"
+                          value={plantingDate}
+                          onChange={(e) => setPlantingDate(e.target.value)}
+                          className="w-full min-h-[48px] px-4 rounded-[14px] bg-[#F7F8F6] text-[#17231F] font-semibold text-[15px] outline-none focus:ring-2 focus:ring-[#0F6B4B]"
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-3.5 rounded-[14px] bg-[#EBF5F0] flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[13px] font-semibold text-[#0A4D36]">
+                        {language === 'ur'
+                          ? `فصل کی عمر: ${cropAgeDays} دن`
+                          : language === 'ps'
+                          ? `د فصل عمر: ${cropAgeDays} ورځې`
+                          : `Crop Age: ${cropAgeDays} days`}
+                      </span>
+                      <span className="px-3 py-1 rounded-[10px] bg-[#0F6B4B] text-white text-[12px] font-bold">
+                        {getLocalizedStageName(estimatedGrowthStage)}
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 space-y-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[13px] font-semibold text-[#6B7280]">
+                          {language === 'ur'
+                            ? 'کیا حال ہی میں کوئی اسپرے کیا گیا ہے؟'
+                            : language === 'ps'
+                            ? 'ایا په دې وروستیو کې مو کومه سپرے کړې ده؟'
+                            : 'Were pesticides recently sprayed?'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRecentlySprayedPesticide(false)}
+                            className={`px-3.5 py-1.5 rounded-[10px] text-[13px] font-bold cursor-pointer ${
+                              !recentlySprayedPesticide
+                                ? 'bg-[#0F6B4B] text-white'
+                                : 'bg-[#F7F8F6] text-[#6B7280]'
+                            }`}
+                          >
+                            {language === 'ur' ? 'نہیں' : language === 'ps' ? 'نه' : 'No'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRecentlySprayedPesticide(true)}
+                            className={`px-3.5 py-1.5 rounded-[10px] text-[13px] font-bold cursor-pointer ${
+                              recentlySprayedPesticide
+                                ? 'bg-[#D97706] text-white'
+                                : 'bg-[#F7F8F6] text-[#6B7280]'
+                            }`}
+                          >
+                            {language === 'ur' ? 'ہاں' : language === 'ps' ? 'هو' : 'Yes'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {recentlySprayedPesticide && (
+                        <input
+                          type="text"
+                          value={recentPesticideName}
+                          onChange={(e) => setRecentPesticideName(e.target.value)}
+                          placeholder={
+                            language === 'ur'
+                              ? 'دوائی کا نام (اختیاری)'
+                              : language === 'ps'
+                              ? 'د دوایۍ نوم (اختیاري)'
+                              : 'Medicine name if known (optional)'
+                          }
+                          className="w-full min-h-[42px] px-3.5 rounded-[12px] bg-[#F7F8F6] text-[13px] text-[#17231F] outline-none"
+                        />
+                      )}
+                    </div>
+
+                    {!gpsAvailable ? (
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-3">
+                        <span className="text-[13px] font-semibold text-[#6B7280] flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4 text-[#D97706]" />
+                          <span>
+                            {language === 'ur'
+                              ? 'ضلع منتخب کریں:'
+                              : language === 'ps'
+                              ? 'خپله ضلع وټاکئ:'
+                              : 'Select District:'}
+                          </span>
+                        </span>
+                        <select
+                          value={detectedDistrict}
+                          onChange={(e) => setDetectedDistrict(e.target.value)}
+                          className="min-h-[40px] px-3 rounded-[10px] bg-[#F7F8F6] text-[13px] font-bold text-[#17231F] outline-none"
+                        >
+                          {['Mardan', 'Swabi', 'Charsadda', 'Peshawar', 'Nowshera', 'Malakand'].map(
+                            (d) => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="pt-1 flex items-center gap-2 text-[12px] text-[#0F6B4B] font-semibold">
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>
+                          {language === 'ur'
+                            ? `ضلع: ${detectedDistrict}`
+                            : language === 'ps'
+                            ? `ضلع: ${detectedDistrict}`
+                            : `District: ${detectedDistrict}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
 
-        {/* Pinned Bottom Action Footer — 56px Primary Button */}
+        {/* Pinned Bottom Action Footer */}
         {!isAnalyzing && (
           <div className="shrink-0 p-6 bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
             <button
               type="button"
               onClick={runAnalysis}
-              disabled={!selectedImage}
+              disabled={!selectedImage || !imageQuality.isAcceptable}
               className={`w-full min-h-[56px] py-3.5 rounded-[16px] text-[18px] font-bold flex items-center justify-center gap-3 transition-all ${
-                selectedImage
+                selectedImage && imageQuality.isAcceptable
                   ? 'bg-[#0F6B4B] hover:bg-[#0A4D36] text-white shadow-[0_8px_24px_rgba(15,107,75,0.25)] cursor-pointer'
                   : 'bg-[#F7F8F6] text-[#6B7280] cursor-not-allowed'
               }`}
             >
               <Camera className="w-6 h-6" />
-              <span>{t.startAnalysisBtn}</span>
+              <span>
+                {selectedImage
+                  ? t.startAnalysisBtn
+                  : language === 'ur'
+                  ? 'پہلے پتے کی تصویر اپلوڈ کریں'
+                  : language === 'ps'
+                  ? 'لومړی د پاڼې انځور اپلوډ کړئ'
+                  : 'Please upload a leaf image first'}
+              </span>
             </button>
           </div>
         )}
