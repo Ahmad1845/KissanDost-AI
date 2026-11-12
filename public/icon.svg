@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F6B4B" />
+      <stop offset="100%" stop-color="#083F2C" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD147" />
+      <stop offset="100%" stop-color="#F6B81A" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <circle cx="256" cy="256" r="154" fill="url(#gold)" />
+  <!-- Stem -->
+  <path d="M256 368 V224" stroke="#0A4D36" stroke-width="26" stroke-linecap="round" />
+  <!-- Left Leaf -->
+  <path d="M256 268 C202 268 158 228 158 172 C214 172 256 212 256 268 Z" fill="#0A4D36" />
+  <!-- Right Leaf -->
+  <path d="M256 238 C256 182 300 142 356 142 C356 198 312 238 256 238 Z" fill="#0A4D36" />
+  <!-- Ground Mound -->
+  <path d="M186 368 H326" stroke="#0A4D36" stroke-width="24" stroke-linecap="round" />
+</svg>

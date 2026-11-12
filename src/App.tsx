@@ -25,6 +25,7 @@ import { FarmManager } from './components/FarmManager';
 import { PesticideVerifier } from './components/PesticideVerifier';
 import { CommunityIntelligence } from './components/CommunityIntelligence';
 import { VoiceGuideModal } from './components/VoiceGuideModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { VoiceAssistant } from './utils/audioSpeech';
 
 const DEFAULT_FARMS: Farm[] = [
@@ -1062,6 +1063,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Offline Connectivity Banner */}
+      <OfflineIndicator language={language} />
 
       {/* Bottom Navigation Bar */}
       <nav className="sticky bottom-0 inset-x-0 z-40 mt-auto bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.06)] py-2 px-2 sm:px-6">

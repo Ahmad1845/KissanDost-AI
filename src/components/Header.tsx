@@ -3,6 +3,7 @@ import React from 'react';
 import { Sprout, Volume2, PhoneCall, ShieldAlert } from 'lucide-react';
 import { Language, Farm } from '../types';
 import { TRANSLATIONS } from '../data/translations';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   language: Language;
@@ -78,6 +79,8 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Compact Single-Row Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <PWAInstallButton language={language} />
+
           <button
             type="button"
             onClick={onOpenVoiceGuide}
