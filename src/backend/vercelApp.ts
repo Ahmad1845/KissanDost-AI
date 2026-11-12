@@ -3,8 +3,8 @@ import {
   rateLimitMiddleware,
   requestLoggerMiddleware,
   centralizedErrorHandler,
-} from '../src/backend/middleware/apiMiddleware.ts';
-import { v1Router } from '../src/backend/api/v1Router.ts';
+} from './middleware/apiMiddleware.ts';
+import { v1Router } from './api/v1Router.ts';
 
 const app = express();
 
