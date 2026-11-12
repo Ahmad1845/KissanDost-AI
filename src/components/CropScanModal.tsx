@@ -141,6 +141,7 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
 }) => {
   const t = TRANSLATIONS[language];
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -185,6 +186,7 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
 
   const [consentToShare] = useState<boolean>(true);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [isCameraReady, setIsCameraReady] = useState<boolean>(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -215,6 +217,38 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
       setGpsAvailable(false);
     }
   }, [isOpen]);
+
+  // Attach MediaStream to <video> after it mounts so mobile/desktop preview never stays black
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    if (!isCameraActive || !cameraStream || !videoEl) return;
+
+    videoEl.srcObject = cameraStream;
+    videoEl.muted = true;
+    const markReady = () => {
+      if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        setIsCameraReady(true);
+      }
+    };
+    videoEl.addEventListener('loadedmetadata', markReady);
+    videoEl.addEventListener('playing', markReady);
+    videoEl.play().then(markReady).catch(() => {});
+
+    return () => {
+      videoEl.removeEventListener('loadedmetadata', markReady);
+      videoEl.removeEventListener('playing', markReady);
+    };
+  }, [isCameraActive, cameraStream]);
+
+  // Ensure camera hardware tracks are always released when modal closes or unmounts
+  useEffect(() => {
+    if (!isOpen && cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+      setIsCameraActive(false);
+      setIsCameraReady(false);
+    }
+  }, [isOpen, cameraStream]);
 
   if (!isOpen) return null;
 
@@ -599,42 +633,77 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
   };
 
   const startCamera = async () => {
+    setErrorMessage(null);
+    setSelectedImage(null);
+    setIsCameraReady(false);
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
     try {
-      setErrorMessage(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
       setCameraStream(stream);
       setIsCameraActive(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
     } catch {
-      setErrorMessage(
-        language === 'ur'
-          ? 'کیمرہ دستیاب نہیں ہے۔ براہ کرم موبائل سے پتے کی تصویر اپلوڈ کریں۔'
-          : language === 'ps'
-          ? 'کیمره خلاصه نه شوه. مهرباني وکړئ له موبایل نه د پاڼې انځور اپلوډ کړئ.'
-          : 'Camera unavailable. Please upload a leaf photo from your device.'
-      );
       setIsCameraActive(false);
+      setIsCameraReady(false);
+      // Fallback cleanly to native mobile camera capture input
+      if (cameraInputRef.current) {
+        cameraInputRef.current.click();
+      } else {
+        setErrorMessage(
+          language === 'ur'
+            ? 'کیمرہ دستیاب نہیں ہے۔ براہ کرم موبائل سے پتے کی تصویر اپلوڈ کریں۔'
+            : language === 'ps'
+            ? 'کیمره خلاصه نه شوه. مهرباني وکړئ له موبایل نه د پاڼې انځور اپلوډ کړئ.'
+            : 'Camera unavailable. Please upload a leaf photo from your device.'
+        );
+      }
     }
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) return;
+    const videoEl = videoRef.current;
+    if (!videoEl || videoEl.readyState < 2 || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
+      return;
+    }
+    const maxDim = 768;
+    let width = videoEl.videoWidth;
+    let height = videoEl.videoHeight;
+    if (width > maxDim || height > maxDim) {
+      if (width > height) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      } else {
+        width = Math.round((width * maxDim) / height);
+        height = maxDim;
+      }
+    }
     const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 480;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(videoEl, 0, 0, width, height);
       const { markers, quality } = computeCanvasBiomarkersAndQuality(
         ctx,
-        canvas.width,
-        canvas.height,
-        canvas.width,
-        canvas.height
+        width,
+        height,
+        videoEl.videoWidth,
+        videoEl.videoHeight
       );
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setSelectedImage(dataUrl);
@@ -649,7 +718,11 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
       cameraStream.getTracks().forEach((track) => track.stop());
       setCameraStream(null);
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setIsCameraActive(false);
+    setIsCameraReady(false);
   };
 
   const visionPreview = computeAutoVisionPreview();
@@ -893,15 +966,60 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
                   className="relative rounded-[20px] bg-[#17231F] overflow-hidden flex flex-col items-center justify-center min-h-[220px] shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
                 >
                   {isCameraActive ? (
-                    <div className="relative w-full h-60 bg-black flex items-center justify-center">
-                      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    <div className="relative w-full h-64 bg-black flex items-center justify-center">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover"
+                      />
+                      {!isCameraReady && (
+                        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2 text-white">
+                          <Loader2 className="w-7 h-7 animate-spin text-[#F6B81A]" />
+                          <span className="text-[13px] font-medium">
+                            {language === 'ur'
+                              ? 'کیمرہ کھل رہا ہے...'
+                              : language === 'ps'
+                              ? 'کیمره خلاصیږي...'
+                              : 'Opening camera...'}
+                          </span>
+                        </div>
+                      )}
                       <button
-                        onClick={capturePhoto}
-                        className="absolute bottom-4 min-h-[52px] px-6 py-3 rounded-[16px] bg-[#F6B81A] hover:bg-[#e5a912] text-[#17231F] font-semibold text-[16px] shadow-[0_8px_24px_rgba(0,0,0,0.2)] flex items-center gap-2 cursor-pointer"
+                        type="button"
+                        onClick={stopCamera}
+                        aria-label="Stop camera"
+                        className="absolute top-3 end-3 min-h-[38px] px-3 py-1.5 rounded-[12px] bg-black/65 hover:bg-[#E53935] text-white text-[12px] font-semibold flex items-center gap-1 cursor-pointer"
                       >
-                        <Camera className="w-5 h-5" />
-                        <span>{t.takePhoto}</span>
+                        <X className="w-4 h-4" />
+                        <span>{language === 'ur' ? 'بند کریں' : language === 'ps' ? 'بند کړئ' : 'Cancel'}</span>
                       </button>
+                      <div className="absolute bottom-3 inset-x-3 flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={capturePhoto}
+                          disabled={!isCameraReady}
+                          className={`min-h-[48px] px-5 py-2.5 rounded-[16px] font-semibold text-[15px] shadow-[0_8px_24px_rgba(0,0,0,0.25)] flex items-center gap-2 ${
+                            isCameraReady
+                              ? 'bg-[#F6B81A] hover:bg-[#e5a912] text-[#17231F] cursor-pointer'
+                              : 'bg-white/40 text-white/70 cursor-not-allowed'
+                          }`}
+                        >
+                          <Camera className="w-5 h-5" />
+                          <span>{t.takePhoto}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            stopCamera();
+                            cameraInputRef.current?.click();
+                          }}
+                          className="min-h-[48px] px-4 py-2.5 rounded-[16px] bg-white/90 hover:bg-white text-[#17231F] font-semibold text-[13px] shadow-md cursor-pointer"
+                        >
+                          {language === 'ur' ? 'فون کیمرہ' : language === 'ps' ? 'د فون کیمره' : 'Phone Cam'}
+                        </button>
+                      </div>
                     </div>
                   ) : selectedImage ? (
                     <div className="relative w-full h-56 sm:h-64 bg-[#17231F] flex items-center justify-center">
@@ -983,10 +1101,18 @@ export const CropScanModal: React.FC<CropScanModalProps> = ({
                     onChange={handleFileUpload}
                     className="hidden"
                   />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
                 </div>
               </div>
 
-              {selectedImage && !imageQuality.isAcceptable ? (
+              {!isCameraActive && selectedImage && !imageQuality.isAcceptable ? (
                 <div className="p-5 rounded-[20px] bg-[#FEF2F2] border-2 border-[#E53935] space-y-4">
                   <div className="flex items-start gap-3">
                     <ShieldAlert className="w-6 h-6 text-[#E53935] shrink-0 mt-0.5" />
