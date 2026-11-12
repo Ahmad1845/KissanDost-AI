@@ -121,8 +121,8 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     navScan: 'تصویر لیں',
     navFarms: 'میری فصلیں',
     navHistory: 'پرانا ریکارڈ',
-    navCommunity: 'گاؤں کی خبر',
-    navVerify: 'دوائی چیک کریں',
+    navCommunity: 'گاؤں خبر',
+    navVerify: 'دوائی چیک',
     navGov: 'زراعت آفیسر',
     navProfile: 'پروفائل',
 
@@ -224,7 +224,7 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     navFarms: 'زما فصلونه',
     navHistory: 'زړه ریکارډ',
     navCommunity: 'د کلي خبر',
-    navVerify: 'دوایي چیک کړئ',
+    navVerify: 'دوایي چیک',
     navGov: 'زراعت افسر',
     navProfile: 'پروفایل',
 
@@ -325,9 +325,9 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     navScan: 'Take Photo',
     navFarms: 'My Crops',
     navHistory: 'History',
-    navCommunity: 'Village Alert',
-    navVerify: 'Check Medicine',
-    navGov: 'Officer View',
+    navCommunity: 'Alerts',
+    navVerify: 'Medicine',
+    navGov: 'Officer',
     navProfile: 'Profile',
 
     greeting: 'Salam, Farmer Ahmad!',

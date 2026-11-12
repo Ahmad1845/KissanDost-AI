@@ -1,14 +1,12 @@
-// KissanDost AI — Top Navigation & Language Switcher
+// KissanDost AI — Compact Single-Row Top App Bar
 import React from 'react';
 import { Sprout, Volume2, PhoneCall, ShieldAlert } from 'lucide-react';
-import { Language, UserRole, Farm } from '../types';
+import { Language, Farm } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 
 interface HeaderProps {
   language: Language;
   onLanguageChange: (lang: Language) => void;
-  role: UserRole;
-  onRoleChange: (role: UserRole) => void;
   activeFarm: Farm | null;
   nearbyAlertCount: number;
   onOpenAlerts: () => void;
@@ -18,8 +16,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   language,
   onLanguageChange,
-  role,
-  onRoleChange,
   nearbyAlertCount,
   onOpenAlerts,
   onOpenVoiceGuide,
@@ -27,31 +23,31 @@ export const Header: React.FC<HeaderProps> = ({
   const t = TRANSLATIONS[language];
 
   return (
-    <header className="sticky top-0 z-30 bg-[#0A4D36] text-white shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        {/* 1. Brand Identity */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-[14px] bg-[#F6B81A] flex items-center justify-center text-[#17231F] shrink-0">
-            <Sprout className="w-5 h-5 stroke-[2.2]" />
+    <header className="sticky top-0 z-30 bg-[#0A4D36]/95 backdrop-blur-md text-white border-b border-white/10 shadow-[0_2px_14px_rgba(0,0,0,0.08)]">
+      <div className="max-w-5xl mx-auto h-14 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-6">
+        {/* Zone 1: Single-line Brand Wordmark */}
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 shrink-0">
+          <div className="w-8 h-8 rounded-[10px] bg-[#F6B81A] flex items-center justify-center text-[#17231F] shrink-0 shadow-xs">
+            <Sprout className="w-4 h-4 stroke-[2.3]" />
           </div>
-          <h1 className="text-[20px] font-bold tracking-tight text-white leading-tight truncate">
+          <h1 className="text-[16px] sm:text-[18px] font-bold tracking-tight text-white leading-none whitespace-nowrap">
             {t.appName}
           </h1>
         </div>
 
-        {/* 2. Language Switcher (Urdu & Pashto First) */}
+        {/* Zone 2: Compact Single-Line Language Switcher */}
         <div
-          className="flex items-center bg-[#0F6B4B] p-1 rounded-[16px] shrink-0"
+          className="flex items-center bg-[#073A28] p-0.5 rounded-[12px] border border-white/10 shrink-0"
           role="group"
           aria-label="Select Language"
         >
           <button
             type="button"
             onClick={() => onLanguageChange('ur')}
-            className={`min-h-[40px] px-4 py-1.5 rounded-[12px] text-[14px] transition-all cursor-pointer ${
+            className={`h-8 px-2.5 sm:px-3.5 rounded-[10px] text-[12px] sm:text-[13px] leading-none transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 flex items-center justify-center ${
               language === 'ur'
-                ? 'bg-[#F6B81A] text-[#17231F] font-semibold shadow-xs'
-                : 'text-white/85 hover:text-white font-normal'
+                ? 'bg-[#F6B81A] text-[#17231F] font-bold shadow-xs'
+                : 'text-white/85 hover:text-white font-medium'
             }`}
           >
             اردو
@@ -59,10 +55,10 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => onLanguageChange('ps')}
-            className={`min-h-[40px] px-4 py-1.5 rounded-[12px] text-[14px] transition-all cursor-pointer ${
+            className={`h-8 px-2.5 sm:px-3.5 rounded-[10px] text-[12px] sm:text-[13px] leading-none transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 flex items-center justify-center ${
               language === 'ps'
-                ? 'bg-[#F6B81A] text-[#17231F] font-semibold shadow-xs'
-                : 'text-white/85 hover:text-white font-normal'
+                ? 'bg-[#F6B81A] text-[#17231F] font-bold shadow-xs'
+                : 'text-white/85 hover:text-white font-medium'
             }`}
           >
             پښتو
@@ -70,22 +66,23 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => onLanguageChange('en')}
-            className={`min-h-[40px] px-3 py-1.5 rounded-[12px] text-[13px] transition-all cursor-pointer ${
+            className={`h-8 px-2 sm:px-3 rounded-[10px] text-[11px] sm:text-[12px] leading-none transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 flex items-center justify-center ${
               language === 'en'
-                ? 'bg-[#F6B81A] text-[#17231F] font-semibold shadow-xs'
-                : 'text-white/85 hover:text-white font-normal'
+                ? 'bg-[#F6B81A] text-[#17231F] font-bold shadow-xs'
+                : 'text-white/85 hover:text-white font-semibold'
             }`}
           >
             EN
           </button>
         </div>
 
-        {/* 3. Actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Zone 3: Compact Single-Row Actions */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             type="button"
             onClick={onOpenVoiceGuide}
-            className="min-h-[44px] px-4 py-2 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0F6B4B]/80 text-white font-semibold text-[13px] flex items-center gap-2 transition-all cursor-pointer"
+            aria-label={t.voiceGuideBtn}
+            className="min-w-[40px] h-10 px-2.5 sm:px-3.5 rounded-[12px] bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold text-[12px] sm:text-[13px] flex items-center justify-center gap-1.5 transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
           >
             <Volume2 className="w-4 h-4 text-[#F6B81A] shrink-0" />
             <span className="hidden md:inline">{t.voiceGuideBtn}</span>
@@ -94,12 +91,12 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenAlerts}
-            className="relative min-h-[44px] min-w-[44px] px-3 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0F6B4B]/80 text-[#F6B81A] flex items-center justify-center transition-colors cursor-pointer"
             aria-label={t.nearbyAlertsTitle}
+            className="relative min-w-[40px] h-10 px-2.5 rounded-[12px] bg-white/10 hover:bg-white/15 border border-white/10 text-[#F6B81A] flex items-center justify-center transition-colors duration-150 cursor-pointer shrink-0"
           >
-            <ShieldAlert className="w-5 h-5" />
+            <ShieldAlert className="w-4 h-4 shrink-0" />
             {nearbyAlertCount > 0 && (
-              <span className="absolute -top-1 -end-1 w-4 h-4 rounded-full bg-[#E53935] text-white text-[10px] font-semibold flex items-center justify-center">
+              <span className="absolute -top-1 -end-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[#E53935] text-white text-[10px] font-bold tabular-nums flex items-center justify-center shadow-xs">
                 {nearbyAlertCount}
               </span>
             )}
@@ -107,29 +104,11 @@ export const Header: React.FC<HeaderProps> = ({
 
           <a
             href="tel:1925"
-            className="hidden sm:flex min-h-[44px] px-3.5 py-2 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0F6B4B]/80 text-white items-center gap-1.5 text-[13px] font-medium transition-colors"
+            className="hidden lg:inline-flex h-10 px-3 rounded-[12px] bg-white/10 hover:bg-white/15 border border-white/10 text-white/95 items-center gap-1.5 text-[13px] font-medium tabular-nums transition-colors duration-150 whitespace-nowrap shrink-0"
           >
-            <PhoneCall className="w-4 h-4 text-[#F6B81A]" />
+            <PhoneCall className="w-3.5 h-3.5 text-[#F6B81A] shrink-0" />
             <span>1925</span>
           </a>
-
-          <button
-            type="button"
-            onClick={() => onRoleChange(role === 'farmer' ? 'officer' : 'farmer')}
-            className="min-h-[44px] px-3 py-2 rounded-[16px] text-white/80 hover:text-white hover:bg-[#0F6B4B] text-[13px] font-normal transition-colors cursor-pointer"
-          >
-            {role === 'officer'
-              ? language === 'ur'
-                ? 'کسان ویو'
-                : language === 'ps'
-                ? 'بزګر بڼه'
-                : 'Farmer'
-              : language === 'ur'
-              ? 'افسر'
-              : language === 'ps'
-              ? 'افسر'
-              : 'Officer'}
-          </button>
         </div>
       </div>
     </header>

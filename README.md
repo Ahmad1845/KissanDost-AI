@@ -13,7 +13,7 @@
 
 ## 1. Project Overview
 
-**KissanDost AI** is an end-to-end agricultural decision-support platform engineered for smallholder farmers and Agriculture Extension Officers across **Khyber Pakhtunkhwa (KP), Pakistan** (*Mardan, Swabi, Charsadda, Peshawar, Nowshera, Malakand, Swat, Dera Ismail Khan, and Mansehra*).
+**KissanDost AI** is an end-to-end agricultural decision-support platform engineered for smallholder farmers across **Khyber Pakhtunkhwa (KP), Pakistan** (*Mardan, Swabi, Charsadda, Peshawar, Nowshera, Malakand, Swat, Dera Ismail Khan, and Mansehra*).
 
 Smallholder farmers in KP face three critical field challenges:
 1. **Delayed or Inaccurate Crop Pathology Identification**: Fungal, viral, and bacterial infections (*Early Blight, Late Blight, Wheat Yellow Rust, Maize Northern Leaf Blight, Cotton Leaf Curl Virus, Cotton Bacterial Blight, Potato Blight, Chili Anthracnose, Onion Purple Blotch*) can destroy 30–70% of seasonal yield within days if misidentified.
@@ -102,15 +102,19 @@ The Rule-Based Decision Engine (`src/backend/diagnosis/decisionEngine.ts`) provi
 
 ---
 
-## 5. AI Spray Advisor & Medicine Assistant (`src/components/PesticideVerifier.tsx`)
+## 5. AI Spray Advisor & Medicine Checker (`src/components/PesticideVerifier.tsx`)
 
-Accessible from the **Medicine (`دوائی چیک`)** tab, the AI Spray Advisor provides 6 field tools:
-1. **📷 Scan Bottle (OCR + Vision AI)**: Extracts Brand Name (`Aliette 80 WG`, `Dithane M-45`, `Tilt 250 EC`, `Ridomil Gold`), Active Ingredient, Company, Registration Number, Mfg/Expiry Dates, Batch Number, and Barcode; verifies authenticity & expiry; evaluates a 9-point Smart Compatibility Matrix; calculates exact dosage (`1L`, `15L Knapsack Tank`, `1 Acre`); and speaks guidance in Urdu & Mardan Pashto.
-2. **🔍 Search by Name**: Instant KP plant protection registry lookup flagging approved vs. banned chemicals (`Paraquat`, `Monocrotophos`, `Endosulfan`, `Methamidophos`).
-3. **📦 Scan Barcode**: Instant barcode database lookup when bottle labels are muddy or blurry.
-4. **🧪 "Can I Mix These Two Medicines?" (Conservative Tank-Mix Advisor)**: Evaluates `Medicine A + Medicine B → Safe to Mix? YES / NO → Reason → Recommended Ratio → Alternative if Unsafe` using strict conservative agronomy rules.
-5. **⚖️ Medicine Comparison (A vs B)**: Side-by-side comparison of Authenticity, Crop Suitability, Price (PKR), Effectiveness, Toxicity, Dosage, and PHI.
-6. **📋 Spray History**: Longitudinal log of past medicine scans and treatments (`Medicine ↓ Crop ↓ Date ↓ Result`).
+Accessible from the **Medicine (`دوائی چیک`)** tab, the Medicine Checker is designed around clear, low-literacy visual & voice verdicts:
+1. **Two Verification Scopes**:
+   - **Check for My Scanned Crop**: Automatically syncs with the farmer's latest scanned crop & disease (or lets the farmer pick any crop/disease) and gives a direct **Green (Matched & Genuine)** or **Red (Not Suitable / Fake / Banned)** verdict.
+   - **General Bottle Check**: Checks whether a bottle is genuine and lists which crops and diseases it actually treats.
+2. **Three Simple Input Modes**:
+   - **📷 Scan Bottle (OCR + Vision AI)**: Tap the bottle photo box to choose **Use Camera** or **Upload from Mobile**, preview the photo, and press **Submit & Start Scanning**. Uses Gemini Vision OCR to read Brand Name, Active Ingredient, Product Type, Target Crops, and Target Diseases (with dynamic OCR fallback for bottles outside the local registry), flags counterfeit/expired bottles and herbicides (e.g., `Paraquat`), and deduplicates localized disease names.
+   - **🔍 Search by Name**: Instant lookup across KP-approved fungicides, insecticides, and banned chemicals.
+   - **📦 Scan Barcode**: Quick barcode lookup when bottle labels are muddy or unreadable.
+3. **Minimalist Color-Coded Verdict & Voice Guidance**:
+   - **Green Verdict Card**: Shows a short 1-sentence confirmation + **اردو میں سنیں** / **په پښتو واورئ** voice playback buttons (the full spoken script runs strictly via TTS audio and is never dumped onto the card) + 4 easy-to-read instruction cards (**Target Crops & Diseases**, **How to Use & Exact Dosage**, **When to Spray**, **When to Recheck & Harvest Wait**).
+   - **Red Mismatch / Danger Card**: Clearly warns that the product does not match (or is a weed killer/fake), explains **what the product is actually used for** inside the red card, hides unnecessary dosage steps, and shows a **Recommended Safe Alternative** card right below.
 
 ---
 
@@ -125,15 +129,15 @@ KissanDost-AI/
 ├── start-local.sh                               # One-click macOS / Linux / Git Bash launcher
 ├── docker-compose.yml                           # Multi-container orchestration (App + FastAPI + pgvector + Redis)
 ├── src/
-│   ├── App.tsx                                  # Main shell: Hero CTA, Weather bar, Minimalist Recent Scan card
+│   ├── App.tsx                                  # Main shell: Compact 56px header, Hero CTA, Weather bar, 5-tab bottom nav
 │   ├── components/
+│   │   ├── Header.tsx                           # Single-row top bar: Brand, اردو/پښتو/EN switcher, Voice Guide & Alerts
 │   │   ├── CropScanModal.tsx                    # 3-Step Farmer Scan Modal (Photo → Select Crop → Planting Age)
 │   │   ├── RecommendationView.tsx               # Minimalist Farmer View (Voice, Disease, Action Steps, Spray Time)
-│   │   ├── PesticideVerifier.tsx                # AI Spray Advisor (OCR, Barcode, Compare, Tank-Mix, History)
-│   │   ├── VoiceGuideModal.tsx                  # Interactive Urdu & Mardan Pashto Voice Assistant
+│   │   ├── PesticideVerifier.tsx                # Medicine Checker (Camera/Gallery OCR, Name Search, Barcode, Voice)
+│   │   ├── VoiceGuideModal.tsx                  # Interactive Urdu & Mardan Pashto Voice Assistant (collapsed transcript)
 │   │   ├── FarmManager.tsx                      # Farm registry & longitudinal scan history
-│   │   ├── CommunityIntelligence.tsx            # District outbreak alerts
-│   │   └── GovernmentDashboard.tsx              # KP Agriculture Extension Officer surveillance view
+│   │   └── CommunityIntelligence.tsx            # District outbreak alerts
 │   ├── ml/
 │   │   └── cropDiseaseModel.ts                  # 2-Layer MLP Neural Network + Agronomic Lesion Guards
 │   ├── utils/

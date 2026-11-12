@@ -5,7 +5,6 @@ import {
   Sprout,
   Radio,
   FlaskConical,
-  Building2,
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
@@ -18,7 +17,7 @@ import {
   ChevronDown,
   ShieldCheck,
 } from 'lucide-react';
-import { Language, UserRole, Farm, TimelineEvent, RecommendationResult, WeatherSnapshot } from './types';
+import { Language, Farm, TimelineEvent, RecommendationResult, WeatherSnapshot } from './types';
 import { TRANSLATIONS } from './data/translations';
 import { Header } from './components/Header';
 import { CropScanModal } from './components/CropScanModal';
@@ -26,7 +25,6 @@ import { RecommendationView } from './components/RecommendationView';
 import { FarmManager } from './components/FarmManager';
 import { PesticideVerifier } from './components/PesticideVerifier';
 import { CommunityIntelligence } from './components/CommunityIntelligence';
-import { GovernmentDashboard } from './components/GovernmentDashboard';
 import { VoiceGuideModal } from './components/VoiceGuideModal';
 import { VoiceAssistant } from './utils/audioSpeech';
 
@@ -205,8 +203,7 @@ const INITIAL_TIMELINE: TimelineEvent[] = [
 
 export default function App() {
   const [language, setLanguage] = useState<Language>('ur');
-  const [role, setRole] = useState<UserRole>('farmer');
-  const [activeTab, setActiveTab] = useState<'home' | 'scan' | 'decision' | 'farms' | 'verify' | 'community' | 'gov'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'scan' | 'decision' | 'farms' | 'verify' | 'community'>('home');
   const [farms, setFarms] = useState<Farm[]>(DEFAULT_FARMS);
   const [activeFarmId, setActiveFarmId] = useState<string>('farm-01');
   const [currentRecommendation, setCurrentRecommendation] = useState<RecommendationResult>(INITIAL_RECOMMENDATION);
@@ -376,15 +373,6 @@ export default function App() {
       <Header
         language={language}
         onLanguageChange={setLanguage}
-        role={role}
-        onRoleChange={(newRole) => {
-          setRole(newRole);
-          if (newRole === 'officer') {
-            setActiveTab('gov');
-          } else {
-            setActiveTab('home');
-          }
-        }}
         activeFarm={activeFarm}
         nearbyAlertCount={2}
         onOpenAlerts={() => setAlertsModalOpen(true)}
@@ -786,9 +774,6 @@ export default function App() {
 
         {/* VIEW 5: COMMUNITY INTELLIGENCE */}
         {activeTab === 'community' && <CommunityIntelligence language={language} />}
-
-        {/* VIEW 6: GOVERNMENT DASHBOARD */}
-        {activeTab === 'gov' && <GovernmentDashboard language={language} />}
       </main>
 
       {/* CROP SCAN MODAL */}
@@ -881,82 +866,67 @@ export default function App() {
         </div>
       )}
 
-      {/* Bottom Navigation Bar (Sticky in document flow with elevated active pill) */}
-      <nav className="sticky bottom-0 inset-x-0 z-40 mt-auto bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.06)] py-2 px-3 sm:px-6">
-        <div className="max-w-3xl mx-auto grid grid-cols-5 gap-2 items-center">
+      {/* Bottom Navigation Bar */}
+      <nav className="sticky bottom-0 inset-x-0 z-40 mt-auto bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.06)] py-2 px-2 sm:px-6">
+        <div className="max-w-3xl mx-auto grid grid-cols-5 gap-1 sm:gap-2 items-stretch">
           <button
             type="button"
             onClick={() => setActiveTab('home')}
-            className={`min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-[16px] transition-all duration-200 cursor-pointer ${
+            className={`min-h-[58px] px-1 py-1.5 flex flex-col items-center justify-center gap-1 rounded-[14px] transition-all duration-200 cursor-pointer ${
               activeTab === 'home'
-                ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold -translate-y-0.5 shadow-[0_4px_12px_rgba(15,107,75,0.14)]'
+                ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold shadow-[0_2px_10px_rgba(15,107,75,0.12)]'
                 : 'text-[#6B7280] hover:text-[#17231F] font-normal'
             }`}
           >
-            <Home className="w-5 h-5" />
-            <span className="text-[12px] truncate max-w-full px-1">{t.navHome}</span>
+            <Home className="w-5 h-5 shrink-0" />
+            <span className="text-[11px] sm:text-[12px] leading-tight text-center">{t.navHome}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('verify')}
-            className={`min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-[16px] transition-all duration-200 cursor-pointer ${
+            className={`min-h-[58px] px-1 py-1.5 flex flex-col items-center justify-center gap-1 rounded-[14px] transition-all duration-200 cursor-pointer ${
               activeTab === 'verify'
-                ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold -translate-y-0.5 shadow-[0_4px_12px_rgba(15,107,75,0.14)]'
+                ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold shadow-[0_2px_10px_rgba(15,107,75,0.12)]'
                 : 'text-[#6B7280] hover:text-[#17231F] font-normal'
             }`}
           >
-            <FlaskConical className="w-5 h-5" />
-            <span className="text-[12px] truncate max-w-full px-1">{t.navVerify}</span>
+            <FlaskConical className="w-5 h-5 shrink-0" />
+            <span className="text-[11px] sm:text-[12px] leading-tight text-center">{t.navVerify}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsScanModalOpen(true)}
-            className="min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white shadow-[0_6px_16px_rgba(15,107,75,0.25)] cursor-pointer transition-all duration-200 active:scale-95 -translate-y-0.5"
+            className="min-h-[58px] px-1 py-1.5 flex flex-col items-center justify-center gap-1 rounded-[14px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white shadow-[0_4px_14px_rgba(15,107,75,0.22)] cursor-pointer transition-all duration-200 active:scale-95"
           >
-            <Camera className="w-5 h-5 text-[#F6B81A]" />
-            <span className="text-[12px] font-semibold truncate max-w-full px-1">{t.navScan}</span>
+            <Camera className="w-5 h-5 shrink-0 text-[#F6B81A]" />
+            <span className="text-[11px] sm:text-[12px] font-semibold leading-tight text-center">{t.navScan}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsVoiceModalOpen(true)}
-            className="min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-[16px] bg-[#F6B81A]/20 hover:bg-[#F6B81A]/30 text-[#17231F] font-semibold transition-all duration-200 cursor-pointer"
+            className="min-h-[58px] px-1 py-1.5 flex flex-col items-center justify-center gap-1 rounded-[14px] bg-[#F6B81A]/20 hover:bg-[#F6B81A]/30 text-[#17231F] font-semibold transition-all duration-200 cursor-pointer"
           >
-            <Volume2 className="w-5 h-5 text-[#0F6B4B]" />
-            <span className="text-[12px] truncate max-w-full px-1">
+            <Volume2 className="w-5 h-5 shrink-0 text-[#0F6B4B]" />
+            <span className="text-[11px] sm:text-[12px] leading-tight text-center">
               {language === 'ur' ? 'آواز سنیں' : language === 'ps' ? 'غږ واورئ' : 'Voice'}
             </span>
           </button>
 
-          {role === 'officer' ? (
-            <button
-              type="button"
-              onClick={() => setActiveTab('gov')}
-              className={`min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-[16px] transition-all duration-200 cursor-pointer ${
-                activeTab === 'gov'
-                  ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold -translate-y-0.5 shadow-[0_4px_12px_rgba(15,107,75,0.14)]'
-                  : 'text-[#6B7280] hover:text-[#17231F] font-normal'
-              }`}
-            >
-              <Building2 className="w-5 h-5 text-[#0F6B4B]" />
-              <span className="text-[12px] truncate max-w-full px-1">{t.navGov}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setActiveTab('community')}
-              className={`min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-[16px] transition-all duration-200 cursor-pointer ${
-                activeTab === 'community'
-                  ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold -translate-y-0.5 shadow-[0_4px_12px_rgba(15,107,75,0.14)]'
-                  : 'text-[#6B7280] hover:text-[#17231F] font-normal'
-              }`}
-            >
-              <Radio className="w-5 h-5" />
-              <span className="text-[12px] truncate max-w-full px-1">{t.navCommunity}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setActiveTab('community')}
+            className={`min-h-[58px] px-1 py-1.5 flex flex-col items-center justify-center gap-1 rounded-[14px] transition-all duration-200 cursor-pointer ${
+              activeTab === 'community'
+                ? 'bg-[#EBF5F0] text-[#0F6B4B] font-semibold shadow-[0_2px_10px_rgba(15,107,75,0.12)]'
+                : 'text-[#6B7280] hover:text-[#17231F] font-normal'
+            }`}
+          >
+            <Radio className="w-5 h-5 shrink-0" />
+            <span className="text-[11px] sm:text-[12px] leading-tight text-center">{t.navCommunity}</span>
+          </button>
         </div>
       </nav>
     </div>
