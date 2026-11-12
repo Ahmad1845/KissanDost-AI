@@ -24,4 +24,16 @@ app.use('/', v1Router);
 // Centralized API Exception Handler
 app.use(centralizedErrorHandler);
 
-export default app;
+export default function handler(req: express.Request, res: express.Response) {
+  const rawUrl = req.url || '/';
+  if (rawUrl.includes('__vercel_path=')) {
+    const parsed = new URL(rawUrl, 'http://localhost');
+    const targetPath = parsed.searchParams.get('__vercel_path');
+    if (targetPath) {
+      parsed.searchParams.delete('__vercel_path');
+      const qs = parsed.searchParams.toString();
+      req.url = qs ? `${targetPath}?${qs}` : targetPath;
+    }
+  }
+  return app(req, res);
+}

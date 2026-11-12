@@ -11,7 +11,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.mjs"
+      "destination": "/api/index.mjs?__vercel_path=/api/$1"
     },
     {
       "source": "/(.*)",
