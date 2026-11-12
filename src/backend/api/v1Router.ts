@@ -63,7 +63,15 @@ const voiceQueryHandler = async (req: Request, res: Response, next: NextFunction
       success: true,
       ...result,
     });
-  } catch (err) {
+  } catch (err: any) {
+    const status = Number(err?.statusCode) || 503;
+    if (status === 429 || status === 503) {
+      return res.status(status).json({
+        success: false,
+        code: err?.code || 'TTS_UNAVAILABLE',
+        message: err?.message || 'Voice TTS temporarily unavailable.',
+      });
+    }
     next(err);
   }
 };

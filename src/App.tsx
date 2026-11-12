@@ -131,7 +131,7 @@ const INITIAL_RECOMMENDATION: RecommendationResult = {
       dosageText: 'ایک لیٹر پانی میں ڈھائی گرام (آدھا چمچ) دوائی ملائیں — ایک ایکڑ کے لیے 600 سے 800 گرام',
       safetyText: 'اسپرے کرتے وقت منہ اور ناک پر کپڑا باندھیں اور ہاتھوں پر دستانے پہنیں۔ اسپرے کے بعد 7 دن تک ٹماٹر نہ توڑیں۔',
       voiceScript:
-        'السلام علیکم کسان بھائی! آپ کے ٹماٹر کے پودوں پر پتوں کے جھلساؤ یعنی ارلی بلائیٹ کی بیماری لگی ہے۔ اس وقت مردان میں موسم اسپرے کے لیے موزوں ہے، اس لیے صبح سات بجے سے دس بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔ ایک لیٹر پانی میں آدھا چمچ یعنی ڈھائی گرام دوائی ملائیں۔ اسپرے کرتے وقت منہ پر کپڑا ضرور باندھیں۔ اللہ آپ کی فصل میں برکت ڈالے۔',
+        'السلام علیکم میرے پیارے کسان بھائی! خوش آمدید، میں آپ کا کسان دوست بول رہا ہوں۔ آپ کے ٹماٹر کے پودوں پر پتوں کے جھلساؤ یعنی ارلی بلائیٹ کے ہلکے آثار نظر آ رہے ہیں، لیکن گھبرانے کی بالکل بات نہیں ہے۔ اس وقت مردان میں موسم اسپرے کے لیے بہت اچھا اور پرسکون ہے، اس لیے صبح سات بجے سے دس بجے کے درمیان مینکوزیب دوائی کا اسپرے کریں۔ ایک لیٹر پانی میں آدھا چمچ یعنی ڈھائی گرام دوائی ملائیں، اور اسپرے سے پہلے نچلے داغدار پتے توڑ کر دبا دیں۔ اسپرے کرتے وقت منہ پر صاف کپڑا ضرور باندھیں اور سات دن تک ٹماٹر نہ توڑیں۔ اللہ آپ کی محنت میں خوب برکت ڈالے!',
     },
     ps: {
       cropName: 'ټماټر (Tomato)',
@@ -148,7 +148,7 @@ const INITIAL_RECOMMENDATION: RecommendationResult = {
       dosageText: 'په یو لیټر اوبو کې دوه نیم ګرامه (نیمه چمچه) دوایي مکس کړئ — د یو ایکړ لپاره له ۶۰۰ نه تر ۸۰۰ ګرامه',
       safetyText: 'د سپرے کولو په وخت خوله او پوزه په صافه کپړه وتړئ. له سپرے وروسته تر ۷ ورځو پورې ټماټر مه شکوئ.',
       voiceScript:
-        'السلام علیکم زما خوږه زمینداره وروره! ستاسو د ټماټرو په بوټو باندې د پاڼو د سوځېدو یعنې بلایټ بیماري لګېدلې ده. اوس په مردان کې موسم د سپرے لپاره ښه دی، نو سهار د اوو بجو نه تر لسو بجو پورې د مینکوزیب دوایۍ سپرے وکړئ. په یو لیټر اوبو کې نیمه چمچه یعنې دوه نیم ګرامه دوایي مکس کړئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي.',
+        'السلام علیکم زما خوږه زمینداره وروره! ستاسو کسان دوست له تاسو سره خبرې کوي، هیله ده روغ جوړ به یئ. ستاسو د ټماټرو په بوټو باندې د پاڼو د سوځېدو یعنې ارلي بلایټ بیماري ښکاري، خو هیڅ مه پرېشانه کېږئ، وختي علاج یې ډېر اسانه دی. اوس په مردان کې موسم د سپرے لپاره ډېر ښه دی، نو سهار د اوو بجو نه تر لسو بجو پورې د مینکوزیب دوایۍ سپرے وکړئ. په یو لیټر اوبو کې نیمه چمچه یعنې دوه نیم ګرامه دوایي مکس کړئ او لاندې خرابې پاڼې له پټي پاکې کړئ. د سپرے پر مهال خوله په کپړه وتړئ او تر اوو ورځو پورې ټماټر مه شکوئ. الله پاک دې ستاسو په فصل او روزي کې ډېر برکت واچوي!',
     },
   },
 };
@@ -212,6 +212,7 @@ export default function App() {
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
   const [alertsModalOpen, setAlertsModalOpen] = useState<boolean>(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [isHeroVoiceExpanded, setIsHeroVoiceExpanded] = useState<boolean>(false);
 
   const [homePlayingLang, setHomePlayingLang] = useState<Language | null>(null);
@@ -264,7 +265,7 @@ export default function App() {
         ? ur?.voiceScript || `${ur?.disease || currentRecommendation.disease}۔ ${ur?.action || currentRecommendation.action}`
         : targetLang === 'ps'
         ? ps?.voiceScript || `${ps?.disease || currentRecommendation.disease}۔ ${ps?.action || currentRecommendation.action}`
-        : `Hello farmer! Your ${currentRecommendation.crop} has ${currentRecommendation.disease}. ${currentRecommendation.action}`;
+        : `Assalamu Alaikum, dear farmer brother! Welcome back—I am speaking as your Kissan Dost. Your ${currentRecommendation.crop} crop is showing signs of ${currentRecommendation.disease}, so there is no need to worry at all when we treat it in time. ${currentRecommendation.action} Take your time spraying calmly in the morning, cover your nose and mouth with a clean cloth, and check the leaves again in a few days. May your hard work bring a rich, healthy harvest!`;
 
     setHomeLoadingLang(targetLang);
     VoiceAssistant.speak(
@@ -364,6 +365,74 @@ export default function App() {
       ? t.sevMild
       : t.sevModerate;
 
+  const districtLabel = liveWeather.district || activeFarm.district || 'Mardan';
+  const isRainRisk = (liveWeather.rainProbability || 0) >= 40;
+
+  const notifications = [
+    {
+      id: 'outbreak-mardan-01',
+      type: 'danger' as const,
+      targetTab: 'community' as const,
+      title:
+        language === 'ur'
+          ? 'مردان: ٹماٹر کا جھلساؤ'
+          : language === 'ps'
+          ? 'مردان: د ټماټرو د پاڼو ناروغي'
+          : 'Mardan: Tomato Leaf Blight',
+      meta:
+        language === 'ur'
+          ? 'گجر گڑھی اور تورو · ابھی · زیادہ خطرہ'
+          : language === 'ps'
+          ? 'ګجر ګړهي او تورو · اوس · لوړ خطر'
+          : 'Gujar Garhi & Toru · Just now · High Risk',
+      body:
+        language === 'ur'
+          ? '28 کھیتوں میں بیماری ملی ہے۔ آج اپنے پودوں کے نچلے پتے چیک کریں۔'
+          : language === 'ps'
+          ? 'په ۲۸ پټیو کې ناروغي لیدل شوې ده. نن خپل بوټي ضرور وګورئ.'
+          : 'Reported across 28 nearby fields. Inspect your lower leaves today.',
+    },
+    {
+      id: 'weather-spray-02',
+      type: 'weather' as const,
+      targetTab: 'home' as const,
+      title:
+        language === 'ur'
+          ? `${districtLabel}: اسپرے اور موسم کی اطلاع`
+          : language === 'ps'
+          ? `${districtLabel}: د سپرے او موسم خبرتیا`
+          : `${districtLabel}: Weather & Spray Window`,
+      meta:
+        language === 'ur'
+          ? `آج · ${liveWeather.temperature}°C · بارش ${liveWeather.rainProbability}%`
+          : language === 'ps'
+          ? `نن · ${liveWeather.temperature}°C · باران ${liveWeather.rainProbability}%`
+          : `Today · ${liveWeather.temperature}°C · ${liveWeather.rainProbability}% rain`,
+      body:
+        language === 'ur'
+          ? isRainRisk
+            ? 'آج بارش کا امکان ہے — اسپرے کل صبح تک مؤخر کریں تاکہ دوائی ضائع نہ ہو۔'
+            : 'آج موسم صاف اور ہوا ہلکی ہے — صبح 7 سے 10 بجے اسپرے کے لیے بہترین وقت ہے۔'
+          : language === 'ps'
+          ? isRainRisk
+            ? 'نن د باران امکان شته — سپرے تر سبا سهاره وځنډوئ ترڅو دوایي ضایع نشي.'
+            : 'نن موسم صاف او هوا ارامه ده — سهار د ۷ نه تر ۱۰ بجو سپرے ډېر ښه دی.'
+          : isRainRisk
+          ? 'Rain chance ahead — hold spraying until tomorrow morning to avoid washout.'
+          : 'Clear skies and calm wind — ideal spray window from 7:00 AM to 10:00 AM.',
+    },
+  ];
+
+  const unreadAlertCount = notifications.filter((n) => !readNotificationIds.includes(n.id)).length;
+
+  const markNotificationRead = (id: string) => {
+    setReadNotificationIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const markAllNotificationsRead = () => {
+    setReadNotificationIds(notifications.map((n) => n.id));
+  };
+
   return (
     <div
       dir={isRtl ? 'rtl' : 'ltr'}
@@ -374,7 +443,7 @@ export default function App() {
         language={language}
         onLanguageChange={setLanguage}
         activeFarm={activeFarm}
-        nearbyAlertCount={2}
+        nearbyAlertCount={unreadAlertCount}
         onOpenAlerts={() => setAlertsModalOpen(true)}
         onOpenVoiceGuide={() => setIsVoiceModalOpen(true)}
       />
@@ -794,72 +863,158 @@ export default function App() {
         onLanguageChange={setLanguage}
       />
 
-      {/* ALERTS POPUP MODAL (24px Radius, Pinned Header & Visible Close Button) */}
+      {/* NOTIFICATIONS SHEET (Mobile Bottom Drawer / Centered Desktop Sheet) */}
       {alertsModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-50 bg-[#17231F]/55 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setAlertsModalOpen(false)}
         >
           <div
-            className="bg-white rounded-t-[24px] sm:rounded-[24px] max-w-md w-full max-h-[88dvh] shadow-[0_12px_32px_rgba(0,0,0,0.16)] flex flex-col overflow-hidden"
+            className="bg-white rounded-t-[24px] sm:rounded-[24px] max-w-md w-full max-h-[85dvh] shadow-[0_20px_50px_rgba(0,0,0,0.2)] flex flex-col overflow-hidden animate-card-fade"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 px-5 py-4 bg-[#0F6B4B] text-white flex items-center justify-between gap-2">
+            {/* Mobile drag handle */}
+            <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
+              <div className="w-10 h-1 rounded-full bg-[#D1D5DB]" />
+            </div>
+
+            {/* Clean Single-Line Header */}
+            <div className="shrink-0 px-5 py-3.5 border-b border-[#E5E7EB] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <Bell className="w-5 h-5 text-[#F6B81A] shrink-0" />
-                <h3 className="font-bold text-white text-[18px] truncate">
-                  {t.nearbyAlertsTitle}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAlertsModalOpen(false)}
-                className="shrink-0 min-h-[40px] px-3.5 py-1.5 rounded-[12px] bg-[#0A4D36] hover:bg-[#E53935] text-white font-semibold text-[13px] flex items-center gap-1.5 cursor-pointer"
-              >
-                <X className="w-4 h-4 stroke-[2.5]" />
-                <span>{language === 'ur' ? 'بند کریں' : language === 'ps' ? 'بند کړئ' : 'Close'}</span>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 overflow-y-auto">
-              <div className="p-5 rounded-[16px] bg-[#E53935]/10 text-[#17231F] space-y-2">
-                <div className="font-semibold text-[16px] text-[#E53935] flex items-center justify-between">
-                  <span>
-                    🔴{' '}
-                    {language === 'ur'
-                      ? 'مردان: ٹماٹر کا جھلساؤ'
-                      : language === 'ps'
-                      ? 'مردان: د رومیانو ناروغي'
-                      : 'Mardan: Tomato Leaf Blight'}
-                  </span>
-                  <span className="text-[12px] font-semibold">
-                    {language === 'ur' ? 'زیادہ خطرہ' : language === 'ps' ? 'لوړ خطر' : 'High Risk'}
-                  </span>
+                <div className="w-9 h-9 rounded-[11px] bg-[#EBF5F0] text-[#0F6B4B] flex items-center justify-center shrink-0">
+                  <Bell className="w-4 h-4" />
                 </div>
-                <p className="text-[15px] font-normal text-[#17231F] leading-relaxed">
-                  {language === 'ur'
-                    ? 'گجر گڑھی اور تورو کے 28 کھیتوں میں بیماری ملی ہے۔ آج اپنے پودوں کے نچلے پتے چیک کریں۔'
-                    : language === 'ps'
-                    ? 'په ګجر ګړهي او تورو کې په ۲۸ پټیو کې ناروغي لیدل شوې. نن خپل بوټي وګورئ.'
-                    : '28 nearby farms reported leaf spots. Check your lower leaves today.'}
-                </p>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[#17231F] text-[17px] leading-tight">
+                    {language === 'ur'
+                      ? 'اطلاعات'
+                      : language === 'ps'
+                      ? 'خبرتیاوې'
+                      : 'Notifications'}
+                  </h3>
+                  <p className="text-[12px] text-[#6B7280] leading-tight mt-0.5 tabular-nums">
+                    {unreadAlertCount > 0
+                      ? language === 'ur'
+                        ? `${unreadAlertCount} نئی اطلاعات`
+                        : language === 'ps'
+                        ? `${unreadAlertCount} نوې خبرتیاوې`
+                        : `${unreadAlertCount} unread updates`
+                      : language === 'ur'
+                      ? 'سب پڑھی جا چکی ہیں'
+                      : language === 'ps'
+                      ? 'ټولې لوستل شوي دي'
+                      : 'All caught up'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {unreadAlertCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllNotificationsRead}
+                    className="h-9 px-2.5 rounded-[10px] text-[12px] font-semibold text-[#0F6B4B] hover:bg-[#EBF5F0] transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    {language === 'ur'
+                      ? 'سب پڑھ لیا'
+                      : language === 'ps'
+                      ? 'ټول ولوستل'
+                      : 'Mark read'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAlertsModalOpen(false)}
+                  aria-label="Close notifications"
+                  className="w-9 h-9 rounded-full bg-[#F3F4F6] hover:bg-[#E5E7EB] text-[#4B5563] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="w-4 h-4 stroke-[2.2]" />
+                </button>
               </div>
             </div>
 
-            <div className="shrink-0 p-5 bg-[#F7F8F6]">
+            {/* Notification Feed */}
+            <div className="divide-y divide-[#F3F4F6] overflow-y-auto">
+              {notifications.map((item) => {
+                const isUnread = !readNotificationIds.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      markNotificationRead(item.id);
+                      setAlertsModalOpen(false);
+                      setActiveTab(item.targetTab);
+                    }}
+                    className={`w-full text-start px-5 py-4 flex items-start gap-3.5 transition-colors cursor-pointer ${
+                      isUnread
+                        ? 'bg-[#F7FBF9] hover:bg-[#EBF5F0]/70'
+                        : 'bg-white hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0 mt-0.5 ${
+                        item.type === 'danger'
+                          ? 'bg-[#FEE2E2] text-[#DC2626]'
+                          : 'bg-[#EBF5F0] text-[#0F6B4B]'
+                      }`}
+                    >
+                      {item.type === 'danger' ? (
+                        <AlertTriangle className="w-5 h-5" />
+                      ) : (
+                        <CloudSun className="w-5 h-5" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`text-[15px] leading-snug ${
+                            isUnread ? 'font-bold text-[#17231F]' : 'font-semibold text-[#4B5563]'
+                          }`}
+                        >
+                          {item.title}
+                        </span>
+                        {isUnread && (
+                          <span
+                            className={`text-[11px] font-bold shrink-0 ${
+                              item.type === 'danger' ? 'text-[#DC2626]' : 'text-[#0F6B4B]'
+                            }`}
+                          >
+                            {language === 'ur' ? 'نیا' : language === 'ps' ? 'نوی' : 'New'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[12px] text-[#6B7280] leading-snug">
+                        {item.meta}
+                      </div>
+                      <p className="text-[14px] text-[#374151] leading-relaxed">
+                        {item.body}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Clean Footer CTA */}
+            <div className="shrink-0 p-4 bg-[#F9FAFB] border-t border-[#E5E7EB]">
               <button
                 type="button"
                 onClick={() => {
+                  markAllNotificationsRead();
                   setAlertsModalOpen(false);
                   setActiveTab('community');
                 }}
-                className="w-full min-h-[56px] py-3 rounded-[16px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[16px] cursor-pointer"
+                className="w-full min-h-[48px] px-4 py-2.5 rounded-[14px] bg-[#0F6B4B] hover:bg-[#0A4D36] text-white font-semibold text-[15px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
-                {language === 'ur'
-                  ? 'پورے ضلع کی صورتحال دیکھیں'
-                  : language === 'ps'
-                  ? 'د ټولې ولسوالۍ حال وګورئ'
-                  : 'See Full Village Report'}
+                <span>
+                  {language === 'ur'
+                    ? 'پورے ضلع کی صورتحال دیکھیں'
+                    : language === 'ps'
+                    ? 'د ټولې ولسوالۍ حال وګورئ'
+                    : 'See Full District Report'}
+                </span>
               </button>
             </div>
           </div>

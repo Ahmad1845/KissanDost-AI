@@ -216,3 +216,20 @@ npm run lint
 npm run build
 cd backend && pytest -v
 ```
+
+---
+
+## 9. Deploy to Vercel (GitHub Import or CLI)
+
+This repository includes `vercel.json`, `api/index.ts` (serverless Express adapter for `/api/v1/*`), `.vercelignore`, and client-side camera photo compression (to stay safely below Vercel's 4.5 MB request payload limit) while preserving `server.ts` on Port 3000 for local development.
+
+1. Push the repository to **GitHub**.
+2. In **Vercel**, click **Add New Project** → import your GitHub repository (Framework Preset: **Vite**, Build Command: `npm run build`, Output Directory: `dist`).
+3. Add the following **Environment Variables** in Vercel Project Settings:
+   - `GEMINI_API_KEY` *(Required for Vision diagnosis, bottle OCR, and Gemini TTS)*
+   - `GEMINI_VISION_MODEL`=`gemini-4-hydrogen` *(Optional)*
+   - `GEMINI_TTS_MODEL`=`gemini-3.8-flash-lite-tts` *(Optional)*
+   - `GOOGLE_MAPS_PLATFORM_KEY` *(Optional — falls back to time-indexed Open-Meteo automatically)*
+   - `NODE_ENV`=`production`
+4. Click **Deploy** (or run `npx vercel --prod` from the project root).
+

@@ -85,75 +85,77 @@ export const VoiceGuideModal: React.FC<VoiceGuideModalProps> = ({
 
     if (lang === 'ps') {
       if (topic === 'weather') {
-        return `السلام علیکم زما خوږه زمینداره وروره! د موسم په باره کې زما خبره واورئ: ${
+        return `السلام علیکم زما خوږه زمینداره وروره! د موسم په باره کې زما خوږه مشوره واورئ: ${
           ps?.bestTime || 'سبا سهار د اوو بجو نه تر لسو بجو پورې'
-        } د سپرے کولو لپاره تر ټولو ښه وخت دی. ${
+        } د سپرے کولو لپاره تر ټولو مناسب او ارام وخت دی. ${
           ps?.whySummary || 'نن د باران امکان شته، نو نن سپرے مه کوئ ترڅو ستاسو دوایي او پیسې ضایع نشي.'
-        }`;
+        } کله چې هوا ارامه وي او په پاڼو شبنم نه وي، نو دوایي په پاڼو ډېر ښه اثر کوي. الله پاک دې ستاسو په فصل کې برکت واچوي!`;
       }
       if (topic === 'medicine') {
-        return `السلام علیکم زمینداره وروره! د دې بیمارۍ لپاره تر ټولو ښه او منظور شوې دوایي ${
+        return `السلام علیکم زما خوږه زمینداره وروره! ستاسو د فصل د ژغورلو لپاره تر ټولو ښه او منظور شوې دوایي ${
           ps?.medicineName || med?.name || 'مینکوزیب'
-        } ده. د دې طریقه دا ده: ${
+        } ده، نو هیڅ مه پرېشانه کېږئ. د ورکولو اسانه طریقه یې دا ده: ${
           ps?.dosageText || 'د یو ایکړ لپاره شپږ سوه ګرامه دوایي په سلو لیټرو اوبو کې مکس کړئ او سپرے وکړئ'
-        }. او دا احتیاط ضرور کوئ: ${
+        }. د سپرے پر مهال د پاڼو پورته او لاندې دواړه اړخونه ښه لامده کړئ، او دا احتیاط ضرور کوئ: ${
           ps?.safetyText || 'د سپرے کولو په وخت خپله خوله او پوزه په صافه کپړه وتړئ.'
         }`;
       }
       if (topic === 'desi') {
-        return `السلام علیکم زمینداره وروره! که تاسو غواړئ بې له پیسو دیسي او کلیواله طریقه وکړئ، نو د بوټي لاندې خرابې او داغدارې پاڼې وشکوئ او له پټي بهر یې په خاوره کې ښخې کړئ. او د بکانړې یا نیم د ونې د پاڼو اوبه پر بوټو سپرے کړئ.`;
+        return `السلام علیکم زما خوږه زمینداره وروره! که تاسو غواړئ بې له پیسو دیسي او کلیواله طریقه وکړئ، نو ډېره اسانه ده. لومړی د بوټي لاندې خرابې او داغدارې پاڼې په ارامه وشکوئ او له پټي بهر یې په خاوره کې ښخې کړئ ترڅو نورو بوټو ته ونه رسیږي. بیا د بکانړې یا نیم د ونې د پاڼو اوبه جوش او یخې کړئ او سهار وختي یې پر بوټو سپرے کړئ. الله پاک دې ستاسو فصل روغ وساتي!`;
       }
       return (
         ps?.voiceScript ||
-        `السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د فصل پاڼه په غور سره وکتله. په دې باندې ${
+        `السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د فصل پاڼه په مینه او غور سره وکتله. په دې باندې ${
           ps?.disease || recommendation.disease
-        } بیماري لګېدلې ده. ${ps?.action || recommendation.action} ${
+        } بیماري ښکاري، خو هیڅ د پرېشانۍ خبره نشته ځکه وختي علاج یې ډېر اسانه دی. ${
+          ps?.action || recommendation.action
+        } اندازه یې دا ده: ${
           ps?.dosageText || ''
-        } الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!`
+        }. سهار وختي سپرے وکړئ او خوله مو په کپړه وتړئ. الله پاک دې ستاسو په محنت او فصل کې ډېر برکت واچوي!`
       );
     }
 
     if (lang === 'ur') {
       if (topic === 'weather') {
-        return `کسان بھائی! موسم کے بارے میں خاص بات سن لیں: اسپرے کا سب سے بہترین وقت ${
+        return `السلام علیکم میرے پیارے کسان بھائی! موسم کے بارے میں میری یہ ضروری بات تسلی سے سن لیں: اسپرے کا سب سے بہترین وقت ${
           ur?.bestTime || 'کل صبح سات سے دس بجے'
         } ہے۔ ${
-          ur?.whySummary || 'آج بارش کا امکان ہے اس لیے آج اسپرے نہ کریں ورنہ دوائی دھل جائے گی اور پیسے ضائع ہوں گے۔'
-        }`;
+          ur?.whySummary || 'آج بارش کا امکان ہے اس لیے آج اسپرے نہ کریں ورنہ دوائی دھل جائے گی اور آپ کی محنت و پیسے ضائع ہوں گے۔'
+        } جب ہوا ہلکی ہو اور پتوں پر شبنم نہ ہو تب دوائی پتوں پر اچھی طرح جمتی ہے۔ اللہ آپ کی فصل میں برکت ڈالے!`;
       }
       if (topic === 'medicine') {
-        return `کسان بھائی! اس بیماری کے لیے منظور شدہ اور اصلی دوائی ${
+        return `السلام علیکم میرے پیارے کسان بھائی! آپ کی فصل کی حفاظت کے لیے منظور شدہ اور بالکل اصلی دوائی ${
           ur?.medicineName || med?.name || 'مینکوزیب'
-        } ہے۔ اس کی مقدار یہ ہے: ${
+        } ہے۔ گھبرائیں نہیں، اس کے استعمال کا آسان طریقہ یہ ہے: ${
           ur?.dosageText || 'ایک ایکڑ کے لیے چھ سو سے آٹھ سو گرام دوائی سو لیٹر پانی میں ملا کر اسپرے کریں'
-        }۔ اور احتیاط یاد رکھیں: ${
-          ur?.safetyText || 'اسپرے کرتے وقت منہ اور ناک پر کپڑا باندھیں اور پھل توڑنے سے سات دن پہلے اسپرے بند کر دیں۔'
+        }۔ اسپرے کرتے وقت پتوں کے اوپر اور نیچے اچھی طرح چھڑکاؤ کریں، اور یہ احتیاط ضرور یاد رکھیں: ${
+          ur?.safetyText || 'اسپرے کرتے وقت منہ اور ناک پر صاف کپڑا باندھیں اور پھل توڑنے سے سات دن پہلے اسپرے بند کر دیں۔'
         }`;
       }
       if (topic === 'desi') {
-        return `کسان بھائی! اگر آپ بغیر پیسوں کے دیسی علاج کرنا چاہتے ہیں تو پودے کے نچلے خراب اور دھبے والے پتوں کو ہاتھ سے توڑ کر زمین میں دبا دیں، اور نیم کے پتوں یا نمولی کا پانی ابال کر ٹھنڈا کر کے اسپرے کریں۔`;
+        return `السلام علیکم میرے پیارے کسان بھائی! اگر آپ بغیر پیسوں کے آسان دیسی علاج کرنا چاہتے ہیں تو فکر نہ کریں۔ سب سے پہلے پودے کے نچلے خراب اور دھبے والے پتوں کو ہاتھ سے احتیاط سے توڑ کر کھیت سے باہر زمین میں دبا دیں تاکہ بیماری آگے نہ پھیلے۔ اس کے بعد نیم یا بکائن کے پتوں کا پانی ابال کر ٹھنڈا کر لیں اور صبح سویرے پودوں پر اسپرے کریں۔ اللہ آپ کی محنت قبول فرمائے!`;
       }
       return (
         ur?.voiceScript ||
-        `السلام علیکم کسان بھائی! میں نے آپ کی فصل کا پتہ غور سے دیکھ لیا ہے۔ آپ کی فصل پر ${
+        `السلام علیکم میرے پیارے کسان بھائی! میں نے آپ کی فصل کا پتہ بڑے غور اور محبت سے دیکھ لیا ہے۔ آپ کی فصل پر ${
           ur?.disease || recommendation.disease
-        } کی علامات ہیں۔ ${ur?.action || recommendation.action} ${
+        } کے آثار نظر آ رہے ہیں، مگر پریشان ہونے کی بالکل بات نہیں ہے۔ ${ur?.action || recommendation.action} دوائی کی مقدار یہ ہے: ${
           ur?.dosageText || ''
-        } اللہ آپ کی فصل میں خوب برکت ڈالے!`
+        }۔ اسپرے کرتے وقت منہ پر کپڑا ضرور باندھیں۔ اللہ آپ کی محنت قبول فرمائے اور فصل میں خوب برکت ڈالے!`
       );
     }
 
     // English
     if (topic === 'weather') {
-      return `Dear Farmer Brother! Best time to spray is ${recommendation.bestTime}. ${recommendation.weatherSnapshot.weatherAdvice}`;
+      return `Assalamu Alaikum, dear farmer brother! Let's check the weather together before spraying. The best and safest window to spray is ${recommendation.bestTime}. ${recommendation.weatherSnapshot.weatherAdvice} Spraying when the wind is calm helps the medicine stay on the leaves so none of your hard work goes to waste. Wishing you a healthy harvest!`;
     }
     if (topic === 'medicine') {
-      return `Use ${med?.name || 'Mancozeb'}. Mix ${med?.dosage || '600 grams in 100 litres of water per acre'}. Safety rule: ${med?.ppe || 'Cover your mouth and nose while spraying'}.`;
+      return `Assalamu Alaikum, dear farmer brother! Don't worry—we have a reliable, approved medicine for this issue: ${med?.name || 'Mancozeb'}. Simply mix ${med?.dosage || '600 grams in 100 litres of water per acre'}, and coat both the top and underside of the leaves evenly. For your safety, ${med?.ppe || 'please cover your mouth and nose with a clean cloth while spraying'}.`;
     }
     if (topic === 'desi') {
-      return `For a free home method: pluck and bury the spotted bottom leaves in soil away from water channels, and spray 5 percent Neem seed water extract.`;
+      return `Assalamu Alaikum, dear farmer brother! If you prefer a free, natural home method, it is very simple. Gently pluck the spotted bottom leaves and bury them in the soil outside your field so the disease does not spread. Then spray a cool 5 percent Neem leaf or seed water extract early in the morning to protect the healthy leaves.`;
     }
-    return `Salam Farmer Brother! Your ${recommendation.crop} leaf shows ${recommendation.disease}. ${recommendation.action} Best time to spray is ${recommendation.bestTime}. ${recommendation.detailedExplanation}`;
+    return `Assalamu Alaikum, dear farmer brother! I have carefully checked your ${recommendation.crop} leaf, and it shows signs of ${recommendation.disease}. Please don't worry at all—catching it early makes recovery straightforward. ${recommendation.action} The best time to spray is ${recommendation.bestTime}. ${recommendation.detailedExplanation} Wishing you a healthy, blessed harvest!`;
   };
 
   const handlePlayTopic = (topic: 'full' | 'weather' | 'medicine' | 'desi', targetLang: Language = language) => {

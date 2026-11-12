@@ -12,6 +12,39 @@ import { ModelPredictionResult } from '../../ml/cropDiseaseModel.ts';
 export class GeminiAiService {
   private ai: GoogleGenAI | null = null;
   private initializedKey = '';
+  private modelCooldownUntil = new Map<string, number>();
+
+  private isModelCoolingDown(modelName: string): boolean {
+    const until = this.modelCooldownUntil.get(modelName);
+    if (!until) return false;
+    if (Date.now() >= until) {
+      this.modelCooldownUntil.delete(modelName);
+      return false;
+    }
+    return true;
+  }
+
+  private summarizeError(err: any): { isQuota: boolean; isNotFound: boolean; summary: string } {
+    const raw = err?.message || String(err);
+    const isQuota = raw.includes('429') || raw.includes('RESOURCE_EXHAUSTED') || raw.toLowerCase().includes('quota');
+    const isNotFound = raw.includes('404') || raw.includes('NOT_FOUND');
+    const summary = isQuota
+      ? 'Quota exceeded (429 RESOURCE_EXHAUSTED)'
+      : isNotFound
+      ? 'Model not found (404)'
+      : raw.slice(0, 160);
+    return { isQuota, isNotFound, summary };
+  }
+
+  private markModelFailure(modelName: string, err: any): { isQuota: boolean; isNotFound: boolean; summary: string } {
+    const info = this.summarizeError(err);
+    if (info.isQuota) {
+      this.modelCooldownUntil.set(modelName, Date.now() + 30 * 60 * 1000);
+    } else if (info.isNotFound) {
+      this.modelCooldownUntil.set(modelName, Date.now() + 60 * 60 * 1000);
+    }
+    return info;
+  }
 
   private getApiKey(): string {
     const raw = (process.env.GEMINI_API_KEY || settings.geminiApiKey || '').trim();
@@ -33,7 +66,6 @@ export class GeminiAiService {
     if (!this.ai || this.initializedKey !== key) {
       this.ai = new GoogleGenAI({
         apiKey: key,
-        apiVersion: 'v1beta',
         httpOptions: {
           headers: {
             'User-Agent': 'aistudio-build',
@@ -73,13 +105,15 @@ export class GeminiAiService {
       return null;
     }
 
-    const fastModels = [
-      'gemini-3.1-flash-lite',
-      'gemini-3.1-flash-lite-preview',
-      'gemini-2.5-flash-lite',
-      'gemini-2.5-flash',
-      settings.geminiVisionModel,
-    ];
+    const fastModels = Array.from(
+      new Set([
+        'gemini-3.1-flash-lite',
+        'gemini-4-hydrogen',
+        settings.geminiVisionModel,
+        'gemini-2.5-flash-lite',
+        'gemini-2.5-flash',
+      ])
+    ).filter((m) => !this.isModelCoolingDown(m));
 
     const prompt = `You are an expert plant pathologist. Inspect this ${params.cropHint} leaf photo carefully (ignore human fingers/hands holding the petiole and ignore background field/soil).
 Look closely at the leaf blade and veins:
@@ -119,9 +153,10 @@ Return ONLY a JSON object:
           return JSON.parse(txt);
         }
       } catch (err: any) {
+        const info = this.markModelFailure(modelName, err);
         logger.warn('FAST_LEAF_INSPECT_FALLBACK', {
           model: modelName,
-          error: err?.message?.slice(0, 120) || String(err),
+          error: info.summary,
         });
       }
     }
@@ -176,7 +211,7 @@ ${params.ragPromptContext}
 CRITICAL RULES FOR LOW-LITERACY FARMERS:
 1. NEVER use difficult scientific jargon or bookish/literary Pashto. Use simple, everyday farmer words!
 2. For Pashto (ps), ALWAYS write in simple, everyday **Mardan / Charsadda / Swabi / Peshawar spoken Yusufzai Pashto** (use everyday words like "ټماټر" instead of "رومیان", "دوایي" instead of "درمل", "سپرے وکړئ" instead of "وشیندئ", "بیماري" instead of "ناروغي", "شبنم" instead of "پرخه", "لاندې پاڼې" instead of "لاندینۍ پاڼې", and "زمینداره وروره" instead of "کروندګره").
-3. Provide natural, warm, human-sounding spoken scripts in both Pakistani Urdu (اردو) and simple Mardan Pashto (پښتو) as if an elder brother ("Kissan Dost") is speaking directly to the farmer in the field, starting with "السلام علیکم کسان بھائی!" in Urdu and "السلام علیکم زما خوږه زمینداره وروره!" in Pashto.
+3. Provide natural, warm, reassuring, elder-brother ("Kissan Dost") spoken scripts of about 5 to 6 friendly sentences in both Pakistani Urdu (اردو) and simple Mardan Pashto (پښتو). Greet the farmer warmly ("السلام علیکم میرے پیارے کسان بھائی!" / "السلام علیکم زما خوږه زمینداره وروره!"), reassure them not to worry ("گھبرانے کی بالکل بات نہیں" / "هیڅ د پرېشانۍ خبره نشته"), clearly explain what you see on the leaf, the medicine & water measurement, the best weather timing, a simple safety or after-care tip, and close with a heartfelt prayer/blessing.
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -208,7 +243,7 @@ Return ONLY a JSON object with this exact structure:
       "medicineName": "منظور شدہ دوائی کا نام (یا کسی دوائی کی ضرورت نہیں)",
       "dosageText": "پانی اور دوائی کی آسان مقدار (یا پیسے بچائیں)",
       "safetyText": "آسان حفاظتی ہدایت",
-      "voiceScript": "السلام علیکم کسان بھائی! سے شروع ہونے والا مکمل، محبت بھرا اور قدرتی اردو بول چال کا پیراگراف"
+      "voiceScript": "السلام علیکم میرے پیارے کسان بھائی! سے شروع ہونے والا ۵ سے ۶ جملوں کا نہایت محبت بھرا، حوصلہ افزا اور قدرتی اردو بول چال کا پیراگراف جس میں تسلی، آسان علاج، پانی کی مقدار، صحیح وقت، احتیاط اور دل سے دعا شامل ہو"
     },
     "ps": {
       "cropName": "د مردان په اسانه پښتو کې د فصل نوم (لکه پنبه، ټماټر، غنم، جوار)",
@@ -220,7 +255,7 @@ Return ONLY a JSON object with this exact structure:
       "medicineName": "منظور شوې دوایي (یا د هیڅ دوایۍ ضرورت نشته)",
       "dosageText": "د اوبو او دوایۍ اسانه اندازه (یا پیسې بچت کړئ)",
       "safetyText": "اسانه احتیاطي خبره",
-      "voiceScript": "السلام علیکم زما خوږه زمینداره وروره! څخه پیل کیدونکې د مردان او پېښور په ساده، خوږه او عامه کلیوالي پښتو وینا"
+      "voiceScript": "السلام علیکم زما خوږه زمینداره وروره! څخه پیل کیدونکې د ۵ نه تر ۶ جملو پورې د مردان او پېښور په ساده، خوږه او حوصله ورکوونکې کلیوالي پښتو وینا چې پکې ډاډګیرنه، دوایي او اوبو اندازه، د سپرے سم وخت، احتیاط او خوږه دعا شامله وي"
     }
   }
 }`;
@@ -228,12 +263,12 @@ Return ONLY a JSON object with this exact structure:
       const visionModels = Array.from(
         new Set([
           'gemini-3.1-flash-lite',
-          'gemini-3.1-flash-lite-preview',
-          'gemini-2.5-flash-lite',
+          'gemini-4-hydrogen',
           settings.geminiVisionModel,
+          'gemini-2.5-flash-lite',
           'gemini-2.5-flash',
         ])
-      );
+      ).filter((m) => !this.isModelCoolingDown(m));
       let textOutput = '';
 
       for (const modelName of visionModels) {
@@ -267,9 +302,10 @@ Return ONLY a JSON object with this exact structure:
           textOutput = response.text?.trim() || '';
           if (textOutput) break;
         } catch (innerErr: any) {
+          const info = this.markModelFailure(modelName, innerErr);
           logger.warn('VISION_MODEL_ATTEMPT_FALLBACK', {
             model: modelName,
-            error: innerErr?.message || String(innerErr),
+            error: info.summary,
           });
         }
       }
@@ -377,12 +413,12 @@ Return ONLY a JSON object:
       const visionModels = Array.from(
         new Set([
           'gemini-3.1-flash-lite',
-          'gemini-3.1-flash-lite-preview',
+          'gemini-4-hydrogen',
+          settings.geminiVisionModel,
           'gemini-2.5-flash-lite',
           'gemini-2.5-flash',
-          settings.geminiVisionModel,
         ])
-      );
+      ).filter((m) => !this.isModelCoolingDown(m));
       let textOutput = '';
 
       for (const modelName of visionModels) {
@@ -416,9 +452,10 @@ Return ONLY a JSON object:
           textOutput = response.text?.trim() || '';
           if (textOutput) break;
         } catch (innerErr: any) {
+          const info = this.markModelFailure(modelName, innerErr);
           logger.warn('BOTTLE_OCR_MODEL_FALLBACK', {
             model: modelName,
-            error: innerErr?.message || String(innerErr),
+            error: info.summary,
           });
         }
       }
@@ -515,15 +552,17 @@ Return ONLY a JSON object:
     }
 
     let base64Audio: string | undefined;
-    const ttsModels = Array.from(
+    let sawQuotaError = false;
+    const candidateTtsModels = Array.from(
       new Set([
+        'gemini-3.8-flash-lite-tts',
         settings.geminiTtsPrimaryModel,
         settings.geminiTtsFallbackModel,
         'gemini-2.5-flash-preview-tts',
       ])
-    );
+    ).filter((m) => !this.isModelCoolingDown(m));
 
-    for (const ttsModel of ttsModels) {
+    for (const ttsModel of candidateTtsModels) {
       try {
         const useSpeechMetadata = ttsModel.includes('3.8');
         const response = await client.models.generateContent({
@@ -557,15 +596,26 @@ Return ONLY a JSON object:
         base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (base64Audio) break;
       } catch (ttsErr: any) {
+        const info = this.markModelFailure(ttsModel, ttsErr);
+        if (info.isQuota) sawQuotaError = true;
         logger.warn('TTS_MODEL_ATTEMPT_FALLBACK', {
           model: ttsModel,
-          error: ttsErr?.message || String(ttsErr),
+          error: info.summary,
         });
       }
     }
 
     if (!base64Audio) {
-      throw new Error('Could not synthesize voice audio.');
+      if (sawQuotaError || candidateTtsModels.length === 0) {
+        throw Object.assign(new Error('Voice TTS quota temporarily exhausted. Using device voice fallback.'), {
+          statusCode: 429,
+          code: 'TTS_QUOTA_EXCEEDED',
+        });
+      }
+      throw Object.assign(new Error('Could not synthesize voice audio.'), {
+        statusCode: 503,
+        code: 'TTS_UNAVAILABLE',
+      });
     }
 
     // Prepend 500ms of clean digital PCM silence so browser/OS audio start never clips or fades the first 2 words

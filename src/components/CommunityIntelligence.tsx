@@ -70,7 +70,14 @@ export const CommunityIntelligence: React.FC<CommunityIntelligenceProps> = ({ la
     if (dist?.localizedAlertText?.[language]) {
       return dist.localizedAlertText[language];
     }
-    return `In ${dist.district} district, ${dist.activeOutbreaks} farms reported ${dist.primaryDisease} on ${dist.primaryCrop}. Status is ${dist.riskLevel}. Check your lower crop leaves regularly.`;
+    const localDist = getDistrictLocalizedName(dist.district);
+    if (language === 'ur') {
+      return `السلام علیکم میرے پیارے کسان بھائی! ضلع ${localDist} میں ${dist.activeOutbreaks} کھیتوں سے ${dist.primaryCrop} کی خبر موصول ہوئی ہے۔ گھبرانے کی بات نہیں، بس احتیاط کے طور پر صبح کے وقت اپنے پودوں کے نچلے پتے چیک کر لیں اور کھیت کو صاف رکھیں۔ اللہ آپ کی فصل میں برکت ڈالے!`;
+    }
+    if (language === 'ps') {
+      return `السلام علیکم زما خوږه زمینداره وروره! په ضلع ${localDist} کې په ${dist.activeOutbreaks} پټیو کې د فصل خبرتیا راغلې ده. مه پرېشانه کېږئ، بس سهار خپل بوټي او لاندې پاڼې په غور وګورئ او پټی صاف ساتئ. الله دې ستاسو په فصل کې برکت واچوي!`;
+    }
+    return `Assalam-o-Alaikum, dear farmer brother! In ${dist.district} district, ${dist.activeOutbreaks} nearby farms reported ${dist.primaryDisease} on ${dist.primaryCrop}. Take a friendly walk through your field this morning to inspect your lower leaves, and avoid spraying during rain or strong wind.`;
   };
 
   const handlePlayAlertVoice = () => {

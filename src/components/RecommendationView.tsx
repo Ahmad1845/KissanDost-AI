@@ -106,21 +106,25 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     if (targetLang === 'ur') {
       script =
         ur?.voiceScript ||
-        `السلام علیکم کسان بھائی! آپ کی فصل ${localizedCrop} پر ${
+        `السلام علیکم میرے پیارے کسان بھائی! میں نے آپ کی ${localizedCrop} کی فصل کو بڑے غور سے دیکھا ہے۔ اس پر ${
           ur?.disease || result.disease
-        } کی بیماری ہے۔ ${ur?.action || result.action} اسپرے کا صحیح وقت ${
+        } کے آثار نظر آ رہے ہیں، لیکن گھبرانے کی بالکل بات نہیں ہے۔ ${ur?.action || result.action} اسپرے کا بہترین وقت ${
           ur?.bestTime || result.bestTime
-        } ہے۔ ${ur?.dosageText || ''} اللہ آپ کی فصل میں برکت ڈالے!`;
+        } ہے، اور دوائی کی مقدار یہ ہے: ${
+          ur?.dosageText || localizedDosage
+        }۔ اسپرے کرتے وقت منہ اور ناک پر صاف کپڑا ضرور باندھیں۔ اللہ آپ کی محنت قبول فرمائے اور فصل میں خوب برکت ڈالے!`;
     } else if (targetLang === 'ps') {
       script =
         ps?.voiceScript ||
-        `السلام علیکم زما خوږه زمینداره وروره! ستاسو په فصل باندې ${
+        `السلام علیکم زما خوږه زمینداره وروره! ما ستاسو د ${localizedCrop} پاڼه په مینه او غور سره وکتله. په دې باندې ${
           ps?.disease || result.disease
-        } بیماري لګېدلې ده. ${ps?.action || result.action} د سپرے سم وخت ${
-          ps?.bestTime || result.bestTime
-        } دی. ${ps?.dosageText || ''} الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!`;
+        } بیماري ښکاري، خو هیڅ مه پرېشانه کېږئ، وختي علاج به یې زر مخه ونیسي. ${
+          ps?.action || result.action
+        } د سپرے تر ټولو ښه وخت ${ps?.bestTime || result.bestTime} دی، او اندازه یې دا ده: ${
+          ps?.dosageText || localizedDosage
+        }. د سپرے پر مهال خوله او پوزه په کپړه وتړئ. الله پاک دې ستاسو په فصل کې ډېر برکت واچوي!`;
     } else {
-      script = `Salam Farmer Brother! Your ${result.crop} crop has ${result.disease}. ${result.action} Best time to spray is ${result.bestTime}. Mix ${localizedDosage}.`;
+      script = `Assalamu Alaikum, dear farmer brother! I have carefully checked your ${result.crop} leaf, and it shows signs of ${result.disease}. Please don't worry at all—catching it early makes treatment very simple. ${result.action} The best time to spray is ${result.bestTime}, mixing ${localizedDosage}. Remember to cover your mouth and nose with a clean cloth while spraying, and check back on the leaves in a few days. Wishing you a healthy and blessed harvest!`;
     }
 
     VoiceAssistant.speak(
